@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sample Library — Books Database</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <p class="brand">Sample Library</p>
+        <h1>Books from a live SQLite database</h1>
+        <p class="lede">
+          This demo site loads sample records from a local database and lets you
+          add or remove books through a simple API.
+        </p>
+      </header>
+
+      <main>
+        <section class="panel" aria-labelledby="catalog-heading">
+          <div class="panel-head">
+            <h2 id="catalog-heading">Catalog</h2>
+            <p id="status" class="status" role="status">Loading…</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Author</th>
+                  <th>Year</th>
+                  <th>Genre</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="books-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="add-heading">
+          <h2 id="add-heading">Add a book</h2>
+          <form id="add-form" class="add-form">
+            <label>
+              Title
+              <input name="title" type="text" required placeholder="Book title" />
+            </label>
+            <label>
+              Author
+              <input name="author" type="text" required placeholder="Author name" />
+            </label>
+            <label>
+              Year
+              <input
+                name="year"
+                type="number"
+                required
+                min="1"
+                max="2100"
+                placeholder="2020"
+              />
+            </label>
+            <label>
+              Genre
+              <input name="genre" type="text" required placeholder="Fiction" />
+            </label>
+            <button type="submit">Add to database</button>
+          </form>
+          <p id="form-message" class="form-message" role="status"></p>
+        </section>
+      </main>
+
+      <footer>
+        <p>
+          Stack: Node.js · Express · SQLite (<code>better-sqlite3</code>). Data
+          file: <code>data/sample.db</code>.
+        </p>
+      </footer>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>
