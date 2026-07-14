@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reports — Sample Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page page-wide">
+      <header class="hero hero-compact">
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Catalog</a>
+          <a href="/reports.html" aria-current="page">Reports</a>
+        </nav>
+        <p class="brand">Sample Library</p>
+        <h1>Reporting on raw catalog data</h1>
+        <p class="lede">
+          Filter the live SQLite rows, review totals and breakdowns, then export
+          CSV for the filtered set.
+        </p>
+      </header>
+
+      <section class="panel filters-panel" aria-labelledby="filters-heading">
+        <div class="panel-head">
+          <h2 id="filters-heading">Filters</h2>
+          <p id="report-status" class="status" role="status">Loading…</p>
+        </div>
+        <form id="filters-form" class="filters-form">
+          <label>
+            Search
+            <input
+              name="q"
+              type="search"
+              placeholder="Title, author, or genre"
+              autocomplete="off"
+            />
+          </label>
+          <label>
+            Genre
+            <select name="genre">
+              <option value="">All genres</option>
+            </select>
+          </label>
+          <label>
+            Author
+            <select name="author">
+              <option value="">All authors</option>
+            </select>
+          </label>
+          <label>
+            Year from
+            <input name="yearFrom" type="number" min="1" max="2100" placeholder="e.g. 1900" />
+          </label>
+          <label>
+            Year to
+            <input name="yearTo" type="number" min="1" max="2100" placeholder="e.g. 2000" />
+          </label>
+          <div class="filter-actions">
+            <button type="submit">Apply</button>
+            <button type="button" id="reset-filters" class="button-secondary">
+              Reset
+            </button>
+          </div>
+        </form>
+        <div class="export-row">
+          <a id="export-raw" class="export-link" href="/api/reports/export/raw.csv"
+            >Download raw CSV</a
+          >
+          <a
+            id="export-summary"
+            class="export-link"
+            href="/api/reports/export/summary.csv"
+            >Download summary CSV</a
+          >
+        </div>
+      </section>
+
+      <section class="kpi-grid" aria-label="Summary metrics" id="kpi-grid">
+        <!-- filled by reports.js -->
+      </section>
+
+      <main class="report-grid">
+        <section class="panel" aria-labelledby="genre-heading">
+          <h2 id="genre-heading">By genre</h2>
+          <div id="genre-chart" class="bar-chart" role="img" aria-label="Books by genre"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Genre</th>
+                  <th>Books</th>
+                  <th>Share</th>
+                </tr>
+              </thead>
+              <tbody id="genre-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="decade-heading">
+          <h2 id="decade-heading">By decade</h2>
+          <div id="decade-chart" class="bar-chart" role="img" aria-label="Books by decade"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Decade</th>
+                  <th>Books</th>
+                </tr>
+              </thead>
+              <tbody id="decade-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel panel-span" aria-labelledby="author-heading">
+          <h2 id="author-heading">By author</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Author</th>
+                  <th>Books</th>
+                  <th>Years</th>
+                </tr>
+              </thead>
+              <tbody id="author-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel panel-span" aria-labelledby="raw-heading">
+          <div class="panel-head">
+            <h2 id="raw-heading">Raw data</h2>
+            <p id="raw-count" class="status"></p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Author</th>
+                  <th>Year</th>
+                  <th>Genre</th>
+                  <th>Added</th>
+                </tr>
+              </thead>
+              <tbody id="raw-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p>
+          Reports read from <code>data/sample.db</code> via
+          <code>/api/reports</code>. Same filters apply to JSON and CSV exports.
+        </p>
+      </footer>
+    </div>
+    <script src="/reports-app.js"></script>
+  </body>
+</html>
