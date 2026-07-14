@@ -520,8 +520,9 @@ footer code {
     grid-template-columns: minmax(4.5rem, 6rem) 1fr 1.75rem;
   }
 
-  th:nth-child(3),
-  td:nth-child(3) {
+  /* Catalog delete column keeps year; hide year only on catalog table */
+  #books-body td:nth-child(3),
+  table:has(#books-body) th:nth-child(3) {
     display: none;
   }
 }
