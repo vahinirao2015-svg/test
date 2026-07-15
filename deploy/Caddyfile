@@ -1,0 +1,5 @@
+# Replace DOMAIN via compose env, e.g. DOMAIN=inventory.example.com
+{$DOMAIN:localhost} {
+	encode gzip
+	reverse_proxy app:3000
+}

@@ -10,8 +10,9 @@ A web app for storing and managing IT inventory data: laptops, monitors, phones,
 - **Assignment tracking** (person, email, department, location)
 - **Purchase and warranty metadata** with inventory value summary
 - **Seed data** loads automatically on first run
+- **Docker deployment** with a persistent data volume (optional HTTPS via Caddy)
 
-## Quick start
+## Quick start (local)
 
 ```bash
 npm install
@@ -19,6 +20,78 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Docker plan
+
+### Architecture
+
+```text
+Browser
+  │
+  ▼
+[Caddy :443]  ← optional, custom domain + TLS
+  │
+  ▼
+[AssetLedger Next.js :3000]
+  │
+  ▼
+[SQLite volume]  →  /app/data/inventory.db
+```
+
+| Piece | Choice | Why |
+|-------|--------|-----|
+| Image | Multi-stage Node 22 | Small runtime image, native build tools only in build stage |
+| Next output | `standalone` | Minimal production server (`node server.js`) |
+| Database | SQLite file on a Docker volume | Inventory must survive container restarts |
+| HTTPS / domain | Optional Caddy profile | Automatic certificates once DNS points here |
+
+**Do not** run this image on ephemeral serverless hosts without a mounted volume — SQLite needs durable disk.
+
+### Run with Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+App: [http://localhost:3000](http://localhost:3000)
+
+Data persists in the Docker volume `inventory-data`.
+
+### Custom domain + HTTPS
+
+1. Point DNS `A` / `AAAA` records for your domain to the server public IP.
+2. Open ports **80** and **443**.
+3. Start with the HTTPS profile:
+
+```bash
+DOMAIN=inventory.example.com docker compose --profile https up -d --build
+```
+
+Caddy uses `deploy/Caddyfile` and requests a Let's Encrypt certificate for `$DOMAIN`.
+
+After HTTPS is working, you can remove the published `3000:3000` mapping from `docker-compose.yml` so the app is only reachable through Caddy.
+
+### Useful commands
+
+```bash
+# Logs
+docker compose logs -f app
+
+# Stop
+docker compose down
+
+# Stop and delete inventory data (destructive)
+docker compose down -v
+```
+
+### Environment
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_PATH` | `/app/data/inventory.db` | SQLite file location inside the container |
+| `PORT` | `3000` | App listen port |
+| `HOSTNAME` | `0.0.0.0` | Bind address for Docker networking |
+| `DOMAIN` | `localhost` | Hostname used by Caddy when `--profile https` is enabled |
 
 ## API
 
@@ -64,7 +137,8 @@ Sample records are re-seeded when the database is empty.
 
 ## Stack
 
-- Next.js (App Router)
+- Next.js (App Router, standalone output)
 - React 19
 - SQLite via `better-sqlite3`
 - TypeScript + Tailwind CSS
+- Docker Compose (+ optional Caddy)
