@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import type { Asset, AssetCategory, AssetInput, AssetStatus } from "@/lib/types";
 import { emptyAssetInput } from "@/lib/inventory";
 
@@ -14,6 +14,27 @@ interface AssetFormModalProps {
   onSubmit: (input: AssetInput) => Promise<void>;
 }
 
+function toFormValues(initial?: Asset | null): AssetInput {
+  if (!initial) return emptyAssetInput();
+  return {
+    assetTag: initial.assetTag,
+    name: initial.name,
+    category: initial.category,
+    manufacturer: initial.manufacturer,
+    model: initial.model,
+    serialNumber: initial.serialNumber,
+    status: initial.status,
+    assignedTo: initial.assignedTo,
+    assignedEmail: initial.assignedEmail,
+    department: initial.department,
+    location: initial.location,
+    purchaseDate: initial.purchaseDate,
+    warrantyExpiry: initial.warrantyExpiry,
+    purchaseCost: initial.purchaseCost,
+    notes: initial.notes,
+  };
+}
+
 export function AssetFormModal({
   open,
   mode,
@@ -23,38 +44,33 @@ export function AssetFormModal({
   onClose,
   onSubmit,
 }: AssetFormModalProps) {
+  if (!open) return null;
+
+  return (
+    <AssetFormModalInner
+      key={`${mode}-${initial?.id ?? "new"}`}
+      mode={mode}
+      initial={initial}
+      categories={categories}
+      statuses={statuses}
+      onClose={onClose}
+      onSubmit={onSubmit}
+    />
+  );
+}
+
+function AssetFormModalInner({
+  mode,
+  initial,
+  categories,
+  statuses,
+  onClose,
+  onSubmit,
+}: Omit<AssetFormModalProps, "open">) {
   const titleId = useId();
-  const [form, setForm] = useState<AssetInput>(emptyAssetInput());
+  const [form, setForm] = useState<AssetInput>(() => toFormValues(initial));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setError(null);
-    if (initial) {
-      setForm({
-        assetTag: initial.assetTag,
-        name: initial.name,
-        category: initial.category,
-        manufacturer: initial.manufacturer,
-        model: initial.model,
-        serialNumber: initial.serialNumber,
-        status: initial.status,
-        assignedTo: initial.assignedTo,
-        assignedEmail: initial.assignedEmail,
-        department: initial.department,
-        location: initial.location,
-        purchaseDate: initial.purchaseDate,
-        warrantyExpiry: initial.warrantyExpiry,
-        purchaseCost: initial.purchaseCost,
-        notes: initial.notes,
-      });
-    } else {
-      setForm(emptyAssetInput());
-    }
-  }, [open, initial]);
-
-  if (!open) return null;
 
   function update<K extends keyof AssetInput>(key: K, value: AssetInput[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

@@ -8,7 +8,7 @@ const DB_PATH =
   path.join(process.cwd(), "data", "inventory.db");
 
 declare global {
-  // eslint-disable-next-line no-var
+  // Persist the SQLite connection across hot reloads in development.
   var __inventoryDb: Database.Database | undefined;
 }
 

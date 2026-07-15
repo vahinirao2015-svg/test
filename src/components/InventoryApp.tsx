@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AssetFormModal } from "@/components/AssetFormModal";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate } from "@/lib/inventory";
@@ -41,48 +41,60 @@ export function InventoryApp() {
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [department, setDepartment] = useState("all");
+  const [reloadToken, setReloadToken] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [editing, setEditing] = useState<Asset | null>(null);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
-    const handle = window.setTimeout(() => setDeferredSearch(search), 250);
+    const handle = window.setTimeout(() => {
+      startTransition(() => setDeferredSearch(search));
+    }, 250);
     return () => window.clearTimeout(handle);
-  }, [search]);
-
-  const loadInventory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ include: "meta" });
-      if (deferredSearch.trim()) params.set("search", deferredSearch.trim());
-      if (category !== "all") params.set("category", category);
-      if (status !== "all") params.set("status", status);
-      if (department !== "all") params.set("department", department);
-
-      const response = await fetch(`/api/assets?${params.toString()}`);
-      const data = (await response.json()) as InventoryPayload & { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load inventory");
-      }
-
-      setAssets(data.assets);
-      setStats(data.stats);
-      setDepartments(data.departments);
-      setCategories(data.categories);
-      setStatuses(data.statuses);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load inventory");
-    } finally {
-      setLoading(false);
-    }
-  }, [deferredSearch, category, status, department]);
+  }, [search, startTransition]);
 
   useEffect(() => {
-    void loadInventory();
-  }, [loadInventory]);
+    const controller = new AbortController();
+
+    async function run() {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ include: "meta" });
+        if (deferredSearch.trim()) params.set("search", deferredSearch.trim());
+        if (category !== "all") params.set("category", category);
+        if (status !== "all") params.set("status", status);
+        if (department !== "all") params.set("department", department);
+
+        const response = await fetch(`/api/assets?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        const data = (await response.json()) as InventoryPayload & {
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load inventory");
+        }
+
+        setAssets(data.assets);
+        setStats(data.stats);
+        setDepartments(data.departments);
+        setCategories(data.categories);
+        setStatuses(data.statuses);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Failed to load inventory");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+
+    void run();
+    return () => controller.abort();
+  }, [deferredSearch, category, status, department, reloadToken]);
 
   const summaryCards = useMemo(
     () => [
@@ -94,6 +106,10 @@ export function InventoryApp() {
     ],
     [stats]
   );
+
+  function refresh() {
+    setReloadToken((token) => token + 1);
+  }
 
   function openCreate() {
     setModalMode("create");
@@ -120,7 +136,7 @@ export function InventoryApp() {
     if (!response.ok) {
       throw new Error(data.error || "Unable to save asset");
     }
-    await loadInventory();
+    refresh();
   }
 
   async function handleDelete(asset: Asset) {
@@ -135,7 +151,7 @@ export function InventoryApp() {
       setError(data.error || "Unable to delete asset");
       return;
     }
-    await loadInventory();
+    refresh();
   }
 
   return (
