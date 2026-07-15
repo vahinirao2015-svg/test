@@ -55,6 +55,127 @@ textarea {
   animation: rise 0.55s ease both;
 }
 
+.app-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(251, 252, 249, 0.9);
+}
+
+.app-nav-links {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.nav-link.active,
+.nav-link:hover {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+.app-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.app-nav-user strong {
+  display: block;
+}
+
+.app-nav-user span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.6rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(251, 252, 249, 0.95);
+  box-shadow: var(--shadow);
+  animation: rise 0.45s ease both;
+}
+
+.login-panel h1 {
+  margin: 0;
+  letter-spacing: -0.03em;
+}
+
+.login-hint {
+  margin: 0.4rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.login-hint code {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+}
+
+.toolbar.single {
+  grid-template-columns: 1fr;
+}
+
+.role-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.role-admin {
+  background: #dff3e8;
+  color: var(--available);
+}
+
+.role-editor {
+  background: #e3ecf8;
+  color: var(--assigned);
+}
+
+.role-viewer {
+  background: #e7ebe8;
+  color: var(--retired);
+}
+
+.checkbox-field {
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.6rem;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
 .topbar {
   display: flex;
   align-items: flex-end;

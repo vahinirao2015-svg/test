@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import type { Asset, AssetCategory, AssetInput, AssetStatus } from "@/lib/types";
+import type { Asset, AssetCategory, AssetInput, AssetStatus, User } from "@/lib/types";
 import { emptyAssetInput } from "@/lib/inventory";
 
 interface AssetFormModalProps {
@@ -10,6 +10,7 @@ interface AssetFormModalProps {
   initial?: Asset | null;
   categories: readonly AssetCategory[];
   statuses: readonly AssetStatus[];
+  assignableUsers?: User[];
   onClose: () => void;
   onSubmit: (input: AssetInput) => Promise<void>;
 }
@@ -41,6 +42,7 @@ export function AssetFormModal({
   initial,
   categories,
   statuses,
+  assignableUsers = [],
   onClose,
   onSubmit,
 }: AssetFormModalProps) {
@@ -53,6 +55,7 @@ export function AssetFormModal({
       initial={initial}
       categories={categories}
       statuses={statuses}
+      assignableUsers={assignableUsers}
       onClose={onClose}
       onSubmit={onSubmit}
     />
@@ -64,6 +67,7 @@ function AssetFormModalInner({
   initial,
   categories,
   statuses,
+  assignableUsers = [],
   onClose,
   onSubmit,
 }: Omit<AssetFormModalProps, "open">) {
@@ -184,6 +188,43 @@ function AssetFormModalInner({
                 value={form.department}
                 onChange={(e) => update("department", e.target.value)}
               />
+            </label>
+            <label>
+              Assign to user
+              <select
+                value={
+                  assignableUsers.find(
+                    (user) =>
+                      user.email.toLowerCase() ===
+                      form.assignedEmail.toLowerCase()
+                  )?.id ?? ""
+                }
+                onChange={(e) => {
+                  const selected = assignableUsers.find(
+                    (user) => String(user.id) === e.target.value
+                  );
+                  if (!selected) {
+                    update("assignedTo", "");
+                    update("assignedEmail", "");
+                    return;
+                  }
+                  update("assignedTo", selected.name);
+                  update("assignedEmail", selected.email);
+                  if (selected.department) {
+                    update("department", selected.department);
+                  }
+                  if (form.status === "Available") {
+                    update("status", "Assigned");
+                  }
+                }}
+              >
+                <option value="">Unassigned / custom</option>
+                {assignableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} ({user.email})
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               Assigned to

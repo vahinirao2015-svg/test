@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { AppShell } from "@/components/AppShell";
 import { AssetFormModal } from "@/components/AssetFormModal";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatCurrency, formatDate } from "@/lib/inventory";
@@ -10,6 +11,8 @@ import type {
   AssetInput,
   AssetStats,
   AssetStatus,
+  SessionUser,
+  User,
 } from "@/lib/types";
 
 interface InventoryPayload {
@@ -18,6 +21,7 @@ interface InventoryPayload {
   departments: string[];
   categories: AssetCategory[];
   statuses: AssetStatus[];
+  canEdit?: boolean;
 }
 
 const EMPTY_STATS: AssetStats = {
@@ -30,12 +34,14 @@ const EMPTY_STATS: AssetStats = {
   totalValue: 0,
 };
 
-export function InventoryApp() {
+export function InventoryApp({ user }: { user: SessionUser }) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [stats, setStats] = useState<AssetStats>(EMPTY_STATS);
   const [departments, setDepartments] = useState<string[]>([]);
   const [categories, setCategories] = useState<AssetCategory[]>([]);
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
+  const [assignableUsers, setAssignableUsers] = useState<User[]>([]);
+  const [canEdit, setCanEdit] = useState(user.role !== "viewer");
   const [search, setSearch] = useState("");
   const [deferredSearch, setDeferredSearch] = useState("");
   const [category, setCategory] = useState("all");
@@ -69,13 +75,17 @@ export function InventoryApp() {
         if (status !== "all") params.set("status", status);
         if (department !== "all") params.set("department", department);
 
-        const response = await fetch(`/api/assets?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        const data = (await response.json()) as InventoryPayload & {
+        const [inventoryResponse, usersResponse] = await Promise.all([
+          fetch(`/api/assets?${params.toString()}`, {
+            signal: controller.signal,
+          }),
+          fetch("/api/users", { signal: controller.signal }),
+        ]);
+
+        const data = (await inventoryResponse.json()) as InventoryPayload & {
           error?: string;
         };
-        if (!response.ok) {
+        if (!inventoryResponse.ok) {
           throw new Error(data.error || "Failed to load inventory");
         }
 
@@ -84,6 +94,12 @@ export function InventoryApp() {
         setDepartments(data.departments);
         setCategories(data.categories);
         setStatuses(data.statuses);
+        setCanEdit(Boolean(data.canEdit));
+
+        if (usersResponse.ok) {
+          const usersData = (await usersResponse.json()) as { users?: User[] };
+          setAssignableUsers(usersData.users || []);
+        }
       } catch (err) {
         if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Failed to load inventory");
@@ -155,7 +171,7 @@ export function InventoryApp() {
   }
 
   return (
-    <div className="app-shell">
+    <AppShell user={user}>
       <header className="topbar">
         <div className="brand-block">
           <p className="brand-mark">AssetLedger</p>
@@ -164,9 +180,11 @@ export function InventoryApp() {
             Track hardware, licenses, ownership, and location in one place.
           </p>
         </div>
-        <button type="button" className="primary-btn" onClick={openCreate}>
-          Add asset
-        </button>
+        {canEdit ? (
+          <button type="button" className="primary-btn" onClick={openCreate}>
+            Add asset
+          </button>
+        ) : null}
       </header>
 
       <section className="summary-row" aria-label="Inventory summary">
@@ -240,19 +258,19 @@ export function InventoryApp() {
                 <th>Location</th>
                 <th>Cost</th>
                 <th>Warranty</th>
-                <th>Actions</th>
+                {canEdit ? <th>Actions</th> : null}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="empty-cell">
+                  <td colSpan={canEdit ? 9 : 8} className="empty-cell">
                     Loading inventory...
                   </td>
                 </tr>
               ) : assets.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="empty-cell">
+                  <td colSpan={canEdit ? 9 : 8} className="empty-cell">
                     No assets match your filters. Add a record to populate the
                     inventory.
                   </td>
@@ -286,24 +304,26 @@ export function InventoryApp() {
                     <td>{asset.location || "—"}</td>
                     <td>{formatCurrency(asset.purchaseCost)}</td>
                     <td>{formatDate(asset.warrantyExpiry)}</td>
-                    <td>
-                      <div className="row-actions">
-                        <button
-                          type="button"
-                          className="ghost-btn compact"
-                          onClick={() => openEdit(asset)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="danger-btn compact"
-                          onClick={() => void handleDelete(asset)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+                    {canEdit ? (
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            type="button"
+                            className="ghost-btn compact"
+                            onClick={() => openEdit(asset)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="danger-btn compact"
+                            onClick={() => void handleDelete(asset)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               )}
@@ -318,9 +338,10 @@ export function InventoryApp() {
         initial={editing}
         categories={categories}
         statuses={statuses}
+        assignableUsers={assignableUsers}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
       />
-    </div>
+    </AppShell>
   );
 }

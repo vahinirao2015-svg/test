@@ -61,3 +61,28 @@ export interface AssetFilters {
   status?: string;
   department?: string;
 }
+
+export const USER_ROLES = ["admin", "editor", "viewer"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  department: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type UserInput = {
+  name: string;
+  email: string;
+  role: UserRole;
+  department: string;
+  active: boolean;
+  password?: string;
+};
+
+export type SessionUser = Pick<User, "id" | "name" | "email" | "role" | "department">;

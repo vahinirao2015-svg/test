@@ -1,16 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteAsset, getAssetById, seedIfEmpty, updateAsset } from "@/lib/db";
+import { deleteAsset, getAssetById, updateAsset } from "@/lib/db";
+import {
+  canEditAssets,
+  forbidden,
+  getSessionUser,
+  unauthorized,
+} from "@/lib/auth";
+import { ensureAppReady } from "@/lib/bootstrap";
 import type { AssetInput } from "@/lib/types";
 import { normalizeAssetInput, validateAssetInput } from "@/lib/inventory";
 
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    seedIfEmpty();
+    ensureAppReady();
+    const actor = await getSessionUser(request);
+    if (!actor) return unauthorized();
+
     const { id } = await context.params;
     const assetId = Number(id);
     if (!Number.isInteger(assetId)) {
@@ -34,7 +44,11 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    seedIfEmpty();
+    ensureAppReady();
+    const actor = await getSessionUser(request);
+    if (!actor) return unauthorized();
+    if (!canEditAssets(actor.role)) return forbidden();
+
     const { id } = await context.params;
     const assetId = Number(id);
     if (!Number.isInteger(assetId)) {
@@ -67,11 +81,15 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    seedIfEmpty();
+    ensureAppReady();
+    const actor = await getSessionUser(request);
+    if (!actor) return unauthorized();
+    if (!canEditAssets(actor.role)) return forbidden();
+
     const { id } = await context.params;
     const assetId = Number(id);
     if (!Number.isInteger(assetId)) {

@@ -10,6 +10,7 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       DATABASE_PATH: /app/data/inventory.db
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
     volumes:
       # Persist inventory SQLite across container recreates
       - inventory-data:/app/data

@@ -4,8 +4,14 @@ import {
   getAssetStats,
   getDepartments,
   listAssets,
-  seedIfEmpty,
 } from "@/lib/db";
+import {
+  canEditAssets,
+  forbidden,
+  getSessionUser,
+  unauthorized,
+} from "@/lib/auth";
+import { ensureAppReady } from "@/lib/bootstrap";
 import {
   ASSET_CATEGORIES,
   ASSET_STATUSES,
@@ -16,12 +22,15 @@ import { normalizeAssetInput, validateAssetInput } from "@/lib/inventory";
 export const runtime = "nodejs";
 
 function ensureReady() {
-  seedIfEmpty();
+  ensureAppReady();
 }
 
 export async function GET(request: NextRequest) {
   try {
     ensureReady();
+    const actor = await getSessionUser(request);
+    if (!actor) return unauthorized();
+
     const { searchParams } = new URL(request.url);
     const include = searchParams.get("include");
 
@@ -37,6 +46,8 @@ export async function GET(request: NextRequest) {
         departments: getDepartments(),
         categories: ASSET_CATEGORIES,
         statuses: ASSET_STATUSES,
+        canEdit: canEditAssets(actor.role),
+        user: actor,
       });
     }
 
@@ -60,6 +71,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     ensureReady();
+    const actor = await getSessionUser(request);
+    if (!actor) return unauthorized();
+    if (!canEditAssets(actor.role)) return forbidden();
+
     const body = (await request.json()) as Partial<AssetInput>;
     const validationError = validateAssetInput(body);
     if (validationError) {

@@ -5,6 +5,8 @@ A web app for storing and managing IT inventory data: laptops, monitors, phones,
 ## Features
 
 - **Persistent SQLite storage** (`data/inventory.db`)
+- **User management** with roles: `admin`, `editor`, `viewer`
+- **Login sessions** (JWT cookie) protecting inventory and admin pages
 - **Full CRUD** for inventory assets via REST API and UI
 - **Search and filters** by category, status, and department
 - **Assignment tracking** (person, email, department, location)
@@ -20,6 +22,22 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+### Default accounts
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@assetledger.local` | `Admin123!` | admin |
+| `asha.patel@example.com` | `Editor123!` | editor |
+| `marcus.chen@example.com` | `Viewer123!` | viewer |
+
+Set a strong `AUTH_SECRET` in `.env` for production.
+
+### Roles
+
+- **admin** — manage users + inventory
+- **editor** — create/update/delete assets
+- **viewer** — read-only inventory
 
 ## Docker plan
 
@@ -92,11 +110,19 @@ docker compose down -v
 | `PORT` | `3000` | App listen port |
 | `HOSTNAME` | `0.0.0.0` | Bind address for Docker networking |
 | `DOMAIN` | `localhost` | Hostname used by Caddy when `--profile https` is enabled |
+| `AUTH_SECRET` | dev fallback | Secret used to sign login session cookies |
 
 ## API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `POST` | `/api/auth` | Login (`email`, `password`) |
+| `GET` | `/api/auth` | Current session user |
+| `DELETE` | `/api/auth` | Logout |
+| `GET` | `/api/users` | List users (auth required) |
+| `POST` | `/api/users` | Create user (admin) |
+| `PUT` | `/api/users/:id` | Update user (admin) |
+| `DELETE` | `/api/users/:id` | Delete user (admin) |
 | `GET` | `/api/assets` | List assets (`search`, `category`, `status`, `department`) |
 | `GET` | `/api/assets?include=meta` | List assets plus stats, departments, and enums |
 | `POST` | `/api/assets` | Create an asset |
