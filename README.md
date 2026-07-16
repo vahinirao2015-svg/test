@@ -95,11 +95,38 @@ After HTTPS is working, you can remove the published `3000:3000` mapping from `d
 # Logs
 docker compose logs -f app
 
+# Health status
+docker compose ps
+curl http://localhost:3000/api/health
+
+# Rebuild after code changes (required for healthcheck fix)
+docker compose up -d --build --force-recreate
+
+# Shell into the container
+docker compose exec app sh
+
 # Stop
 docker compose down
 
 # Stop and delete inventory data (destructive)
 docker compose down -v
+```
+
+### Container shows `unhealthy`?
+
+Most common cause after user login was added: the old healthcheck called `/api/assets`, which now returns **401** without a session. Rebuild with the updated image that checks `/api/health` instead:
+
+```bash
+docker compose down
+docker compose up -d --build --force-recreate
+docker compose ps
+```
+
+If it is still unhealthy:
+
+```bash
+docker compose logs --tail=100 app
+docker inspect assetledger --format '{{json .State.Health}}'
 ```
 
 ### Environment

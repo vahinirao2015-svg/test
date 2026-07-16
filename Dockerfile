@@ -50,10 +50,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/better-sqlite3 ./nod
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/bindings ./node_modules/bindings
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 
-USER nextjs
+COPY --chmod=755 docker-entrypoint.sh /app/docker-entrypoint.sh
+
+# Stay root for entrypoint so the named volume can be chowned, then drop to nextjs.
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/api/assets').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+# Use /api/health (public). /api/assets returns 401 without a session and would
+# mark the container unhealthy after login was added.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["node", "server.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
