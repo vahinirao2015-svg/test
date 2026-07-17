@@ -13,6 +13,7 @@ A web app for storing and managing IT inventory data: laptops, monitors, phones,
 - **Purchase and warranty metadata** with inventory value summary
 - **Seed data** loads automatically on first run
 - **Docker deployment** with a persistent data volume (optional HTTPS via Caddy)
+- **Kubernetes manifests** (Kustomize) + GitHub Actions / Argo CD automation
 
 ## Quick start (local)
 
@@ -138,6 +139,40 @@ docker inspect assetledger --format '{{json .State.Health}}'
 | `HOSTNAME` | `0.0.0.0` | Bind address for Docker networking |
 | `DOMAIN` | `localhost` | Hostname used by Caddy when `--profile https` is enabled |
 | `AUTH_SECRET` | dev fallback | Secret used to sign login session cookies |
+
+## Kubernetes deployment strategies
+
+Full guide: [`deploy/k8s/README.md`](deploy/k8s/README.md)
+
+Because this app stores data in **SQLite**, Kubernetes is configured for:
+
+- **1 replica**
+- **`Recreate` rollout** (safe single-writer upgrades)
+- **PVC** for `/app/data`
+- Probes on **`/api/health`**
+
+### Strategy options
+
+| Strategy | When to use | Automation |
+|----------|-------------|------------|
+| **kubectl + Kustomize** | First cluster bring-up | Manual / script |
+| **GitHub Actions CI/CD** | Push-to-deploy | `.github/workflows/ci-build.yml` + `cd-deploy.yml` |
+| **Argo CD GitOps** | Desired state always from Git | `deploy/k8s/argocd-application.yaml` |
+| Blue/green or canary | Only after moving off SQLite to a shared DB | Not supported yet |
+
+### Quick deploy
+
+```bash
+kubectl create ns assetledger --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n assetledger create secret generic assetledger-secrets \
+  --from-literal=AUTH_SECRET="$(openssl rand -hex 32)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Point image + host in overlay, then:
+kubectl apply -k deploy/k8s/overlays/prod
+```
+
+CI builds/pushes the image to GHCR; CD needs a `KUBE_CONFIG` secret in the GitHub `prod` environment.
 
 ## API
 

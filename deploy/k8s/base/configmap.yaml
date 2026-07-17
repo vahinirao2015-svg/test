@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: assetledger-config
+  namespace: assetledger
+  labels:
+    app.kubernetes.io/name: assetledger
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  HOSTNAME: "0.0.0.0"
+  DATABASE_PATH: "/app/data/inventory.db"

@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: assetledger
+  namespace: assetledger
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  rules:
+    - host: inventory.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: assetledger
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - inventory.example.com
+      secretName: assetledger-tls
