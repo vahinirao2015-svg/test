@@ -1,0 +1,12 @@
+aws_region          = "us-east-1"
+environment         = "prod"
+cluster_name        = "assetledger"
+cluster_version     = "1.29"
+vpc_cidr            = "10.20.0.0/16"
+node_instance_types = ["t3.medium"]
+node_desired_size   = 2
+ecr_repository_name = "assetledger"
+enable_github_oidc  = true
+github_org          = "vahinirao2015-svg"
+github_repo         = "test"
+ingress_hostname    = "inventory.example.com"

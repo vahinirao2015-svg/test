@@ -84,10 +84,18 @@ Those strategies need **2+ pods** and/or shared writable storage. SQLite + `Read
 
 To enable blue/green later:
 
-1. Move persistence to Postgres/MySQL.
+1. Move persistence to Postgres/MySQL (e.g. Amazon RDS).
 2. Switch Deployment to `RollingUpdate`.
 3. Scale replicas ≥ 2.
 4. Add a canary controller (Argo Rollouts / Flagger).
+
+---
+
+### 5) AWS EKS + ECR (automated)
+
+See **[deploy/aws/README.md](../../aws/README.md)** for Terraform + GitHub Actions OIDC deployment to Amazon EKS with ALB Ingress and gp3 EBS storage.
+
+Overlay: `deploy/k8s/overlays/aws-prod`
 
 ---
 

@@ -158,6 +158,7 @@ Because this app stores data in **SQLite**, Kubernetes is configured for:
 | **kubectl + Kustomize** | First cluster bring-up | Manual / script |
 | **GitHub Actions CI/CD** | Push-to-deploy | `.github/workflows/ci-build.yml` + `cd-deploy.yml` |
 | **Argo CD GitOps** | Desired state always from Git | `deploy/k8s/argocd-application.yaml` |
+| **AWS EKS + ECR** | Production on AWS with full automation | [`deploy/aws/README.md`](deploy/aws/README.md) |
 | Blue/green or canary | Only after moving off SQLite to a shared DB | Not supported yet |
 
 ### Quick deploy
@@ -173,6 +174,17 @@ kubectl apply -k deploy/k8s/overlays/prod
 ```
 
 CI builds/pushes the image to GHCR; CD needs a `KUBE_CONFIG` secret in the GitHub `prod` environment.
+
+### AWS EKS (automated)
+
+Full guide: [`deploy/aws/README.md`](deploy/aws/README.md)
+
+```text
+Terraform → EKS + ECR + ALB + GitHub OIDC
+GitHub Actions → build/push ECR → deploy/k8s/overlays/aws-prod
+```
+
+Workflows: `.github/workflows/aws-eks-infra.yml`, `aws-eks-deploy.yml`
 
 ## API
 
