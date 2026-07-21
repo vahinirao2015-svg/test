@@ -102,6 +102,13 @@ module "eks" {
     }
   }
 
+  # Add-ons (CoreDNS, CSI drivers) may take >20 minutes on slow provisioning.
+  addons_timeouts = {
+    create = "60m"
+    update = "60m"
+    delete = "60m"
+  }
+
   # Use resolve_conflicts_on_* (resolve_conflicts was removed in AWS provider v6)
   addons = {
     coredns = {
