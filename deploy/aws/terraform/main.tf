@@ -284,6 +284,29 @@ resource "aws_eks_access_policy_association" "github_actions_admin" {
   }
 }
 
+# Grant additional IAM users/roles cluster admin (fixes "nodes is forbidden" in console/kubectl)
+resource "aws_eks_access_entry" "cluster_admins" {
+  for_each = toset(var.cluster_admin_principal_arns)
+
+  cluster_name  = module.eks.cluster_name
+  principal_arn = each.value
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "cluster_admins" {
+  for_each = toset(var.cluster_admin_principal_arns)
+
+  cluster_name  = module.eks.cluster_name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = each.value
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.cluster_admins]
+}
+
 # AWS Load Balancer Controller (ALB Ingress)
 module "alb_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"

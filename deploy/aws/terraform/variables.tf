@@ -75,3 +75,13 @@ variable "ingress_hostname" {
   type        = string
   default     = "inventory.example.com"
 }
+
+variable "cluster_admin_principal_arns" {
+  description = <<-EOT
+    IAM user/role ARNs granted EKS cluster admin (list nodes, deploy apps, etc.).
+    The principal that ran `terraform apply` gets admin via enable_cluster_creator_admin_permissions.
+    Add other principals here (e.g. your IAM user). Avoid root unless necessary for dev.
+  EOT
+  type        = list(string)
+  default     = []
+}
