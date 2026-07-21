@@ -85,3 +85,34 @@ variable "cluster_admin_principal_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "enable_vpc_cni_prefix_delegation" {
+  description = <<-EOT
+    Enable VPC CNI prefix delegation so single-node clusters (e.g. t3.micro) can run more
+    than the default ~4 pods. Required for Free Tier single-node EKS with CoreDNS, EBS CSI,
+    and the ALB controller. Existing nodes must be recycled after enabling (see README).
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "coredns_replica_count" {
+  description = "CoreDNS addon replica count. Use 1 for single-node dev/Free Tier clusters."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.coredns_replica_count >= 1 && var.coredns_replica_count <= 10
+    error_message = "coredns_replica_count must be between 1 and 10."
+  }
+}
+
+variable "install_alb_controller" {
+  description = <<-EOT
+    Install AWS Load Balancer Controller via Helm. Set false to reduce kube-system pod count
+    during initial bootstrap if addons are stuck Pending; re-enable after nodes are recycled
+    with prefix delegation (terraform apply with install_alb_controller = true).
+  EOT
+  type        = bool
+  default     = true
+}

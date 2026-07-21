@@ -45,6 +45,19 @@ data "aws_availability_zones" "available" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  vpc_cni_configuration_values = var.enable_vpc_cni_prefix_delegation ? jsonencode({
+    env = {
+      ENABLE_PREFIX_DELEGATION = "true"
+      WARM_PREFIX_TARGET       = "1"
+    }
+  }) : null
+
+  coredns_configuration_values = jsonencode({
+    replicaCount = var.coredns_replica_count
+  })
+}
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 6.0"
@@ -112,18 +125,20 @@ module "eks" {
   # Use resolve_conflicts_on_* (resolve_conflicts was removed in AWS provider v6)
   addons = {
     coredns = {
-      most_recent                = true
+      most_recent                 = true
+      configuration_values        = local.coredns_configuration_values
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
     }
     kube-proxy = {
-      most_recent                = true
+      most_recent                 = true
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
     }
     vpc-cni = {
-      most_recent                = true
-      before_compute             = true
+      most_recent                 = true
+      before_compute              = true
+      configuration_values        = local.vpc_cni_configuration_values
       resolve_conflicts_on_create = "OVERWRITE"
       resolve_conflicts_on_update = "OVERWRITE"
     }
@@ -314,8 +329,10 @@ resource "aws_eks_access_policy_association" "cluster_admins" {
   depends_on = [aws_eks_access_entry.cluster_admins]
 }
 
-# AWS Load Balancer Controller (ALB Ingress)
+# AWS Load Balancer Controller (ALB Ingress) — optional during single-node bootstrap
 module "alb_irsa" {
+  count = var.install_alb_controller ? 1 : 0
+
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.2"
 
@@ -356,6 +373,8 @@ provider "helm" {
 }
 
 resource "helm_release" "aws_load_balancer_controller" {
+  count = var.install_alb_controller ? 1 : 0
+
   name       = "aws-load-balancer-controller"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
@@ -379,7 +398,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = module.alb_irsa.arn
+    value = module.alb_irsa[0].arn
   }
 
   set {

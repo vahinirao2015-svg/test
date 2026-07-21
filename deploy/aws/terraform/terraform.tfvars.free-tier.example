@@ -28,6 +28,12 @@ node_ami_type       = "AL2023_x86_64_STANDARD"
 
 node_desired_size = 1
 
+# Single-node t3.micro defaults: prefix delegation + 1 CoreDNS replica (see README)
+enable_vpc_cni_prefix_delegation = true
+coredns_replica_count            = 1
+# Set false only if kube-system pods are stuck Pending during first bootstrap
+# install_alb_controller         = false
+
 # IAM principals that can use kubectl / EKS console (besides whoever ran terraform apply)
 # Example — account root (dev only; prefer an IAM user in production):
 # cluster_admin_principal_arns = ["arn:aws:iam::357912269932:root"]

@@ -182,6 +182,7 @@ Schedule with AWS Backup or a CronJob before production.
 ## Cost / scaling notes
 
 - **Free Tier EC2:** defaults use **`t3.micro`** (1 node). Copy `terraform.tfvars.free-tier.example` → `terraform.tfvars`.
+- **Single-node pod limit:** `t3.micro` nodes default to **~4 pods** without VPC CNI prefix delegation. This stack enables **prefix delegation** by default (`enable_vpc_cni_prefix_delegation = true`) and sets **CoreDNS to 1 replica** so system addons can schedule. After changing prefix delegation on an existing cluster, **recycle worker nodes** so `--max-pods` increases (see troubleshooting below).
 - **EKS control plane is NOT Free Tier** (~$0.10/hr per cluster).
 - **NAT Gateway is NOT Free Tier** (~$32/mo + data). Largest hidden cost in this stack.
 - `t3.micro` has only **1 GiB RAM** — enough for dev; upgrade to `t3.small` when out of Free Tier.
@@ -396,3 +397,94 @@ terraform apply
 #### Security note
 
 Avoid using the **account root** for daily EKS access. Create an **IAM user** or **role** with admin, add that ARN to `cluster_admin_principal_arns`, and use it for `aws eks update-kubeconfig`.
+
+### CoreDNS / addons stuck: `Too many pods`
+
+```text
+0/1 nodes are available: 1 Too many pods
+```
+
+On a **single `t3.micro` node**, the default pod limit is **~4**. A minimal EKS stack needs more:
+
+| Pod | Count |
+|-----|-------|
+| VPC CNI (`aws-node`) | 1 (DaemonSet) |
+| kube-proxy | 1 (DaemonSet) |
+| EBS CSI node | 1 (DaemonSet) |
+| EBS CSI controller | 1 |
+| CoreDNS | 1–2 |
+| ALB controller | 1 |
+
+That exceeds 4 pods, so CoreDNS (and other addons) stay **Pending** with no preemption target.
+
+#### Fix (new clusters)
+
+Defaults in this repo address this:
+
+```hcl
+enable_vpc_cni_prefix_delegation = true   # raises max pods per node
+coredns_replica_count            = 1        # one CoreDNS on single-node dev
+```
+
+Run `terraform apply` from `deploy/aws/terraform`.
+
+#### Fix (existing cluster — immediate recovery)
+
+**1. Apply Terraform** (or update addons via AWS CLI):
+
+```bash
+cd deploy/aws/terraform
+terraform apply
+```
+
+Or manually:
+
+```bash
+CLUSTER=assetledger
+REGION=us-east-1
+
+aws eks update-addon --cluster-name "$CLUSTER" --addon-name vpc-cni --region "$REGION" \
+  --configuration-values '{"env":{"ENABLE_PREFIX_DELEGATION":"true","WARM_PREFIX_TARGET":"1"}}' \
+  --resolve-conflicts OVERWRITE
+
+aws eks update-addon --cluster-name "$CLUSTER" --addon-name coredns --region "$REGION" \
+  --configuration-values '{"replicaCount":1}' \
+  --resolve-conflicts OVERWRITE
+```
+
+**2. Recycle the worker node** (required — `--max-pods` is set at node join time):
+
+```bash
+# Scale node group to 0, wait for termination, then back to 1
+NODEGROUP=$(aws eks list-nodegroups --cluster-name "$CLUSTER" --region "$REGION" \
+  --query 'nodegroups[0]' --output text)
+
+aws eks update-nodegroup-config --cluster-name "$CLUSTER" --nodegroup-name "$NODEGROUP" \
+  --region "$REGION" --scaling-config minSize=0,maxSize=3,desiredSize=0
+
+# Wait until no nodes: kubectl get nodes
+aws eks update-nodegroup-config --cluster-name "$CLUSTER" --nodegroup-name "$NODEGROUP" \
+  --region "$REGION" --scaling-config minSize=1,maxSize=3,desiredSize=1
+```
+
+**3. Verify** after the new node is Ready:
+
+```bash
+kubectl get nodes -o custom-columns=NAME:.metadata.name,MAXPODS:.status.capacity.pods
+kubectl -n kube-system get pods
+kubectl describe ds -n kube-system aws-node | grep -E 'ENABLE_PREFIX_DELEGATION|WARM_PREFIX_TARGET'
+```
+
+You should see **max pods > 4** (typically ~11 on `t3.micro` with prefix delegation) and CoreDNS **Running**.
+
+**4. Optional — defer ALB controller** if pods are still Pending before node recycle:
+
+```hcl
+install_alb_controller = false
+```
+
+Apply, recover addons, recycle nodes, then set `install_alb_controller = true` and apply again. You can use `kubectl port-forward` until ALB is installed.
+
+#### Production
+
+For production, prefer **`node_desired_size = 2`** or **`t3.small`**+ so system and app pods are not constrained on one small node.
