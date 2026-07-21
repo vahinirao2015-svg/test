@@ -1,18 +1,18 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.5.7"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = ">= 6.28, < 7.0"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.13"
+      version = "~> 2.17"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.30"
+      version = "~> 2.35"
     }
   }
 
@@ -46,7 +46,7 @@ data "aws_caller_identity" "current" {}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.8"
+  version = "~> 5.21"
 
   name = "${var.cluster_name}-vpc"
   cidr = var.vpc_cidr
@@ -71,17 +71,17 @@ module "vpc" {
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.24"
+  version = "~> 21.0"
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
+  # EKS module v21 renamed cluster_* arguments
+  name               = var.cluster_name
+  kubernetes_version = var.cluster_version
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
   enable_cluster_creator_admin_permissions = true
-
-  cluster_endpoint_public_access = true
+  endpoint_public_access                   = true
 
   eks_managed_node_groups = {
     default = {
@@ -90,31 +90,42 @@ module "eks" {
       max_size       = 3
       desired_size   = var.node_desired_size
       capacity_type  = "ON_DEMAND"
+      ami_type       = "AL2023_x86_64_STANDARD"
     }
   }
 
-  cluster_addons = {
+  # Use resolve_conflicts_on_* (resolve_conflicts was removed in AWS provider v6)
+  addons = {
     coredns = {
-      most_recent = true
+      most_recent                = true
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
     }
     kube-proxy = {
-      most_recent = true
+      most_recent                = true
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
     }
     vpc-cni = {
-      most_recent = true
+      most_recent                = true
+      before_compute             = true
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
     }
     aws-ebs-csi-driver = {
-      most_recent              = true
-      service_account_role_arn = module.ebs_csi_irsa.iam_role_arn
+      most_recent                = true
+      service_account_role_arn   = module.ebs_csi_irsa.arn
+      resolve_conflicts_on_create = "OVERWRITE"
+      resolve_conflicts_on_update = "OVERWRITE"
     }
   }
 }
 
 module "ebs_csi_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.39"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.2"
 
-  role_name_prefix = "${var.cluster_name}-ebs-csi-"
+  name = "${var.cluster_name}-ebs-csi"
 
   attach_ebs_csi_policy = true
 
@@ -170,7 +181,7 @@ data "aws_iam_policy_document" "github_assume_role" {
   count = var.enable_github_oidc ? 1 : 0
 
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
@@ -267,17 +278,17 @@ resource "aws_eks_access_policy_association" "github_actions_admin" {
 
 # AWS Load Balancer Controller (ALB Ingress)
 module "alb_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.39"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.2"
 
-  role_name_prefix = "${var.cluster_name}-alb-"
+  name = "${var.cluster_name}-alb"
 
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
     main = {
       provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts   = ["kube-system:aws-load-balancer-controller"]
+      namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
   }
 }
@@ -330,7 +341,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = module.alb_irsa.iam_role_arn
+    value = module.alb_irsa.arn
   }
 
   set {

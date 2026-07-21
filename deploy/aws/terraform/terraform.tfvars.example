@@ -1,7 +1,7 @@
 aws_region          = "us-east-1"
 environment         = "prod"
 cluster_name        = "assetledger"
-cluster_version     = "1.29"
+cluster_version     = "1.31"
 vpc_cidr            = "10.20.0.0/16"
 node_instance_types = ["t3.medium"]
 node_desired_size   = 2

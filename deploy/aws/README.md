@@ -66,10 +66,15 @@ cd deploy/aws/terraform
 cp terraform.tfvars.example terraform.tfvars
 # Edit github_org, github_repo, ingress_hostname, aws_region
 
-terraform init
+terraform init -upgrade
 terraform plan
 terraform apply
 ```
+
+> **Note:** This stack uses **EKS module v21** + **AWS provider v6**, which removes the
+> deprecated `resolve_conflicts` addon attribute (replaced by
+> `resolve_conflicts_on_create` / `resolve_conflicts_on_update`). Always run
+> `terraform init -upgrade` after pulling these changes.
 
 Save outputs:
 
