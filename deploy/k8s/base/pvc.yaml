@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: assetledger-data
+  namespace: assetledger
+  labels:
+    app.kubernetes.io/name: assetledger
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  # Uncomment and set for your cluster if needed:
+  # storageClassName: standard

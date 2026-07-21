@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: assetledger
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  # secret.yaml is intentionally omitted — create AUTH_SECRET out-of-band
+  # (see deploy/k8s/README.md) so CI does not overwrite production secrets.
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+commonLabels:
+  app.kubernetes.io/part-of: assetledger
+images:
+  - name: ghcr.io/OWNER/assetledger
+    newName: ghcr.io/OWNER/assetledger
+    newTag: latest

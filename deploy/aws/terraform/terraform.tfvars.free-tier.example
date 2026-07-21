@@ -1,0 +1,47 @@
+# AWS Free Tier / new account — copy to terraform.tfvars
+#
+# Free Tier eligible EC2 (verify for your account/region):
+#   aws ec2 describe-instance-types --filters Name=free-tier-eligible,Values=true \
+#     --query "InstanceTypes[].InstanceType" --region us-east-1
+#
+# Common choices:
+#   t3.micro  + AL2023_x86_64_STANDARD   (x86, simplest)
+#   t4g.micro + AL2023_ARM_64_STANDARD   (ARM Graviton, also Free Tier)
+#
+# NOT Free Tier: t3.small, t3.medium, m5.large, etc.
+
+aws_region          = "us-east-1"
+environment         = "dev"
+cluster_name        = "assetledger"
+cluster_version     = "1.31"
+vpc_cidr            = "10.20.0.0/16"
+
+# --- Free Tier node (pick ONE pair) ---
+
+# Option A — x86 (recommended for first try)
+node_instance_types = ["t3.micro"]
+node_ami_type       = "AL2023_x86_64_STANDARD"
+
+# Option B — ARM Graviton (uncomment instead of Option A)
+# node_instance_types = ["t4g.micro"]
+# node_ami_type       = "AL2023_ARM_64_STANDARD"
+
+node_desired_size = 1
+
+# Single-node t3.micro defaults: prefix delegation + 1 CoreDNS replica (see README)
+enable_vpc_cni_prefix_delegation = true
+coredns_replica_count            = 1
+# Set false only if kube-system pods are stuck Pending during first bootstrap
+# install_alb_controller         = false
+
+# IAM principals that can use kubectl / EKS console (besides whoever ran terraform apply)
+# Example — account root (dev only; prefer an IAM user in production):
+# cluster_admin_principal_arns = ["arn:aws:iam::357912269932:root"]
+# Example — IAM user:
+# cluster_admin_principal_arns = ["arn:aws:iam::357912269932:user/your-name"]
+
+ecr_repository_name = "assetledger"
+enable_github_oidc  = true
+github_org          = "vahinirao2015-svg"
+github_repo         = "test"
+ingress_hostname    = "inventory.example.com"

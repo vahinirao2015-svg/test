@@ -1,0 +1,85 @@
+name: AWS — Provision EKS Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Terraform action
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+  push:
+    branches: [main]
+    paths:
+      - "deploy/aws/terraform/**"
+      - ".github/workflows/aws-eks-infra.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_WORKING_DIR: deploy/aws/terraform
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: aws-prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform plan
+        if: github.event_name != 'workflow_dispatch' || inputs.action != 'destroy'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan -input=false -out=tfplan \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="github_org=${{ github.repository_owner }}" \
+            -var="github_repo=${{ github.event.repository.name }}"
+
+      - name: Terraform apply
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform apply -input=false -auto-approve \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="github_org=${{ github.repository_owner }}" \
+            -var="github_repo=${{ github.event.repository.name }}"
+
+      - name: Terraform destroy
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform destroy -input=false -auto-approve \
+            -var="aws_region=${{ env.AWS_REGION }}" \
+            -var="github_org=${{ github.repository_owner }}" \
+            -var="github_repo=${{ github.event.repository.name }}"
+
+      - name: Output summary
+        if: success()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "## Terraform outputs" >> "$GITHUB_STEP_SUMMARY"
+          terraform output -json | jq -r 'to_entries[] | "- **\(.key)**: `\(.value.value // .value)`"' >> "$GITHUB_STEP_SUMMARY"

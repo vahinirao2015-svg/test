@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: assetledger
+  namespace: assetledger
+  labels:
+    app.kubernetes.io/name: assetledger
+  annotations:
+    # nginx example — adjust for your ingress controller
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # cert-manager example (uncomment when issuer exists):
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: inventory.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: assetledger
+                port:
+                  name: http
+  # tls:
+  #   - hosts:
+  #       - inventory.example.com
+  #     secretName: assetledger-tls

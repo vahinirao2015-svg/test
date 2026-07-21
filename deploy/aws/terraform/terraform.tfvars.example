@@ -1,0 +1,16 @@
+# Default example — Free Tier friendly (single t3.micro node)
+aws_region          = "us-east-1"
+environment         = "dev"
+cluster_name        = "assetledger"
+cluster_version     = "1.31"
+vpc_cidr            = "10.20.0.0/16"
+node_instance_types = ["t3.micro"]
+node_ami_type       = "AL2023_x86_64_STANDARD"
+node_desired_size   = 1
+enable_vpc_cni_prefix_delegation = true
+coredns_replica_count            = 1
+ecr_repository_name = "assetledger"
+enable_github_oidc  = true
+github_org          = "vahinirao2015-svg"
+github_repo         = "test"
+ingress_hostname    = "inventory.example.com"

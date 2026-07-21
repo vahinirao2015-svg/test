@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: assetledger
+  namespace: assetledger
+  labels:
+    app.kubernetes.io/name: assetledger
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: assetledger
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

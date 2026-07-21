@@ -1,0 +1,107 @@
+name: AWS — Deploy to EKS
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "deploy/aws/terraform/**"
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag (default = git SHA)
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME || 'assetledger' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'assetledger' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: aws-prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "$TAG" ]; then TAG="${{ github.sha }}"; fi
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker build -t "$IMAGE_URI" -t "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest" .
+          docker push "$IMAGE_URI"
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name "${{ env.EKS_CLUSTER_NAME }}" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Ensure namespace and AUTH secret
+        run: |
+          kubectl get ns assetledger >/dev/null 2>&1 || kubectl create ns assetledger
+          if ! kubectl -n assetledger get secret assetledger-secrets >/dev/null 2>&1; then
+            kubectl -n assetledger create secret generic assetledger-secrets \
+              --from-literal=AUTH_SECRET="$(openssl rand -hex 32)"
+          fi
+
+      - name: Deploy with Kustomize (aws-prod overlay)
+        env:
+          IMAGE_TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          cd deploy/k8s/overlays/aws-prod
+          kustomize edit set image "000000000000.dkr.ecr.us-east-1.amazonaws.com/assetledger=${IMAGE_URI}"
+          kubectl apply -k .
+          kubectl -n assetledger rollout status deployment/assetledger --timeout=300s
+
+      - name: Smoke test /api/health
+        run: |
+          kubectl -n assetledger wait --for=condition=ready pod \
+            -l app.kubernetes.io/name=assetledger --timeout=180s
+          POD=$(kubectl -n assetledger get pod -l app.kubernetes.io/name=assetledger -o jsonpath='{.items[0].metadata.name}')
+          kubectl -n assetledger exec "$POD" -- \
+            node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1))"
+
+      - name: Show ingress / ALB hostname
+        run: |
+          echo "Waiting for ALB hostname..."
+          for i in $(seq 1 30); do
+            HOST=$(kubectl -n assetledger get ingress assetledger -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            if [ -n "$HOST" ]; then
+              echo "ALB hostname: $HOST"
+              echo "Point your DNS CNAME to this hostname, then open https://inventory.example.com/login"
+              exit 0
+            fi
+            sleep 10
+          done
+          kubectl -n assetledger describe ingress assetledger || true

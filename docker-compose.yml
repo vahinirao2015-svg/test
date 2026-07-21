@@ -1,0 +1,57 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: assetledger
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      DATABASE_PATH: /app/data/inventory.db
+      AUTH_SECRET: ${AUTH_SECRET:-change-me-in-production}
+    volumes:
+      # Persist inventory SQLite across container recreates
+      - inventory-data:/app/data
+    ports:
+      # Direct access for local/dev: http://localhost:3000
+      - "3000:3000"
+    healthcheck:
+      # Must hit a public endpoint. /api/assets returns 401 without a session.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Optional HTTPS reverse proxy for a custom domain.
+  # Start with: DOMAIN=inventory.example.com docker compose --profile https up -d --build
+  caddy:
+    image: caddy:2.9-alpine
+    container_name: assetledger-caddy
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  inventory-data:
+  caddy-data:
+  caddy-config:

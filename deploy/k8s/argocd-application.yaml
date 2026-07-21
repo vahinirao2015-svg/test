@@ -1,0 +1,28 @@
+# Example Argo CD Application for GitOps automation.
+# Apply once after Argo CD is installed:
+#   kubectl apply -f deploy/k8s/argocd-application.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: assetledger
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/OWNER/REPO.git
+    targetRevision: main
+    path: deploy/k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: assetledger
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+  # SQLite single-replica app — avoid aggressive rolling waves
+  ignoreDifferences: []
