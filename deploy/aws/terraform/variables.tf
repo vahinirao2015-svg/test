@@ -29,15 +29,21 @@ variable "vpc_cidr" {
 }
 
 variable "node_instance_types" {
-  description = "EC2 instance types for the managed node group"
+  description = "EC2 instance types for the managed node group. Free Tier (12 mo): t3.micro, t2.micro, t4g.micro"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.micro"]
+}
+
+variable "node_ami_type" {
+  description = "EKS AMI type for nodes. Use AL2023_ARM_64_STANDARD with t4g.* (Graviton)"
+  type        = string
+  default     = "AL2023_x86_64_STANDARD"
 }
 
 variable "node_desired_size" {
-  description = "Desired worker node count"
+  description = "Desired worker node count (use 1 for Free Tier / dev to minimize cost)"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "ecr_repository_name" {

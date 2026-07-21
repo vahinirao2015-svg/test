@@ -16,7 +16,7 @@ GitHub push
 
 | Component | AWS service | Notes |
 |-----------|-------------|-------|
-| Cluster | **EKS** | Managed node group (`t3.medium` default) |
+| Cluster | **EKS** | Managed node group (`t3.micro` default — Free Tier eligible) |
 | Image registry | **ECR** | `assetledger` repository |
 | Load balancer | **ALB** | AWS Load Balancer Controller (Helm via Terraform) |
 | Disk | **EBS gp3** | PVC for SQLite (`ReadWriteOnce`, 1 replica) |
@@ -181,9 +181,35 @@ Schedule with AWS Backup or a CronJob before production.
 
 ## Cost / scaling notes
 
-- Default: 2× `t3.medium` nodes + NAT gateway (~$30–80/mo depending on region/traffic)
-- SQLite → keep **1 replica**; scale vertically (larger nodes) if needed
-- For HA / multi-AZ app tier, migrate to **RDS Postgres** and increase replicas
+- **Free Tier EC2:** defaults use **`t3.micro`** (1 node). Copy `terraform.tfvars.free-tier.example` → `terraform.tfvars`.
+- **EKS control plane is NOT Free Tier** (~$0.10/hr per cluster).
+- **NAT Gateway is NOT Free Tier** (~$32/mo + data). Largest hidden cost in this stack.
+- `t3.micro` has only **1 GiB RAM** — enough for dev; upgrade to `t3.small` when out of Free Tier.
+- For production after trial: `t3.small` or `t3.medium`, `node_desired_size = 2`.
+
+### Free Tier instance types (verify)
+
+```bash
+aws ec2 describe-instance-types \
+  --filters Name=free-tier-eligible,Values=true \
+  --query "InstanceTypes[?contains(InstanceType, 'micro')].InstanceType" \
+  --region us-east-1
+```
+
+Typical results: `t2.micro`, `t3.micro`, `t4g.micro`
+
+| Instance | AMI type | Free Tier? | Notes |
+|----------|----------|------------|-------|
+| `t3.micro` | `AL2023_x86_64_STANDARD` | Yes* | Default; tight RAM for EKS |
+| `t4g.micro` | `AL2023_ARM_64_STANDARD` | Yes* | ARM; set in free-tier tfvars |
+| `t3.medium` | `AL2023_x86_64_STANDARD` | **No** | Causes InvalidParameterCombination |
+
+\*12-month Free Tier for new AWS accounts; 750 hrs/month per instance type.
+
+```bash
+cp terraform.tfvars.free-tier.example terraform.tfvars
+terraform apply
+```
 
 ---
 
