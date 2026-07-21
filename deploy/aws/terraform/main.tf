@@ -4,7 +4,8 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.28, < 7.0"
+      # EKS module v21 requires AWS provider >= 6.52 (removes resolve_conflicts)
+      version = ">= 6.52, < 7.0"
     }
     helm = {
       source  = "hashicorp/helm"
@@ -46,7 +47,7 @@ data "aws_caller_identity" "current" {}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.21"
+  version = "~> 6.0"
 
   name = "${var.cluster_name}-vpc"
   cidr = var.vpc_cidr
