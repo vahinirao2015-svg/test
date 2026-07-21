@@ -339,3 +339,60 @@ Use GitHub Actions for infrastructure instead of your laptop:
 2. Run **Actions → AWS — Provision EKS Infrastructure → apply**.
 
 The runner has stable DNS to `*.amazonaws.com`.
+
+### Error: `nodes is forbidden` / cannot list resource "nodes"
+
+```text
+User "arn:aws:iam::ACCOUNT_ID:root" cannot list resource "nodes" in API group "" at the cluster scope
+```
+
+You are signed in as an IAM principal that **does not have Kubernetes RBAC** on the cluster. Only the IAM identity that **created** the cluster (or principals explicitly granted access) can list nodes.
+
+#### Quick fix (AWS CLI) — grant yourself cluster admin
+
+Replace `ACCOUNT_ID` and cluster/region as needed:
+
+```powershell
+$CLUSTER = "assetledger"
+$REGION  = "us-east-1"
+$PRINCIPAL = "arn:aws:iam::357912269932:root"   # or arn:aws:iam::357912269932:user/YOUR_USER
+
+aws eks create-access-entry `
+  --cluster-name $CLUSTER `
+  --principal-arn $PRINCIPAL `
+  --type STANDARD `
+  --region $REGION
+
+aws eks associate-access-policy `
+  --cluster-name $CLUSTER `
+  --principal-arn $PRINCIPAL `
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy `
+  --access-scope type=cluster `
+  --region $REGION
+
+aws eks update-kubeconfig --name $CLUSTER --region $REGION
+kubectl get nodes
+```
+
+Wait ~30 seconds, then refresh the EKS console or rerun `kubectl`.
+
+#### Fix via Terraform (persistent)
+
+In `terraform.tfvars`:
+
+```hcl
+cluster_admin_principal_arns = [
+  "arn:aws:iam::357912269932:root",
+  # "arn:aws:iam::357912269932:user/admin",
+]
+```
+
+Then:
+
+```bash
+terraform apply
+```
+
+#### Security note
+
+Avoid using the **account root** for daily EKS access. Create an **IAM user** or **role** with admin, add that ARN to `cluster_admin_principal_arns`, and use it for `aws eks update-kubeconfig`.

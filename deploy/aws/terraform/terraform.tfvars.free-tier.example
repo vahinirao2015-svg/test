@@ -28,6 +28,12 @@ node_ami_type       = "AL2023_x86_64_STANDARD"
 
 node_desired_size = 1
 
+# IAM principals that can use kubectl / EKS console (besides whoever ran terraform apply)
+# Example — account root (dev only; prefer an IAM user in production):
+# cluster_admin_principal_arns = ["arn:aws:iam::357912269932:root"]
+# Example — IAM user:
+# cluster_admin_principal_arns = ["arn:aws:iam::357912269932:user/your-name"]
+
 ecr_repository_name = "assetledger"
 enable_github_oidc  = true
 github_org          = "vahinirao2015-svg"
