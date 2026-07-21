@@ -245,3 +245,71 @@ provider[registry.terraform.io/hashicorp/aws] 6.55.0
 If it still shows `5.x`, init did not upgrade — delete `.terraform` again and rerun `terraform init -upgrade`.
 
 > This was only a **warning**, not a hard error. Older applies could succeed; after upgrading, the warning disappears.
+
+### Error: `lookup eks.us-east-1.amazonaws.com: no such host`
+
+```text
+Error: waiting for EKS Node Group ... create: ... Get "https://eks.us-east-1.amazonaws.com/...":
+dial tcp: lookup eks.us-east-1.amazonaws.com: no such host
+```
+
+**This is a network/DNS problem on the machine running Terraform**, not an EKS misconfiguration. Terraform lost connectivity to the AWS API while polling node group status.
+
+#### Step 1 — Test DNS and HTTPS (Windows PowerShell)
+
+```powershell
+nslookup eks.us-east-1.amazonaws.com
+nslookup eks.us-east-1.amazonaws.com 8.8.8.8
+Test-NetConnection eks.us-east-1.amazonaws.com -Port 443
+aws sts get-caller-identity
+```
+
+| Result | Meaning |
+|--------|---------|
+| `nslookup` fails | DNS issue (corporate DNS, VPN, offline) |
+| `nslookup` works but `Test-NetConnection` fails | Firewall/proxy blocking AWS |
+| `aws sts` fails | AWS CLI also cannot reach AWS — fix network first |
+
+#### Step 2 — Common fixes
+
+1. **Reconnect internet / VPN** (or disconnect VPN if it blocks AWS).
+2. **Flush DNS cache (Windows):**
+   ```powershell
+   ipconfig /flushdns
+   ```
+3. **Use public DNS temporarily:** set adapter DNS to `8.8.8.8` and `1.1.1.1`.
+4. **Corporate proxy:** set before running Terraform:
+   ```powershell
+   $env:HTTP_PROXY="http://proxy.company:8080"
+   $env:HTTPS_PROXY="http://proxy.company:8080"
+   ```
+5. **Run Terraform from a machine with reliable AWS access** (e.g. GitHub Actions workflow **AWS — Provision EKS Infrastructure** on `ubuntu-latest`).
+
+#### Step 3 — Resume after fixing network
+
+The cluster may already exist; only the node group wait failed.
+
+```powershell
+cd deploy\aws\terraform
+terraform refresh
+terraform plan
+terraform apply
+```
+
+Check node group in AWS:
+
+```powershell
+aws eks list-nodegroups --cluster-name assetledger --region us-east-1
+aws eks describe-nodegroup --cluster-name assetledger --nodegroup-name <name-from-above> --region us-east-1
+```
+
+If the node group is `CREATE_FAILED` or stuck, delete it in the console (or `aws eks delete-nodegroup ...`) and run `terraform apply` again.
+
+#### Step 4 — Avoid long local applies (optional)
+
+Use GitHub Actions for infrastructure instead of your laptop:
+
+1. Set `AWS_TERRAFORM_ROLE_ARN` in GitHub `aws-prod` environment.
+2. Run **Actions → AWS — Provision EKS Infrastructure → apply**.
+
+The runner has stable DNS to `*.amazonaws.com`.

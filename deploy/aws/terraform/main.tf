@@ -92,6 +92,13 @@ module "eks" {
       desired_size   = var.node_desired_size
       capacity_type  = "ON_DEMAND"
       ami_type       = "AL2023_x86_64_STANDARD"
+
+      # EKS node groups can take 10–20+ minutes; avoid premature Terraform timeout
+      timeouts = {
+        create = "60m"
+        update = "60m"
+        delete = "60m"
+      }
     }
   }
 
