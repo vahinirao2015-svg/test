@@ -198,3 +198,50 @@ Actions → AWS — Provision EKS Infrastructure → destroy
 # or locally:
 cd deploy/aws/terraform && terraform destroy
 ```
+
+---
+
+## Troubleshooting
+
+### Warning: Deprecated value `resolve_conflicts`
+
+```text
+Warning: Deprecated resource attribute "resolve_conflicts" used
+  ... module.eks.aws_eks_addon.this["aws-ebs-csi-driver"].resolve_conflicts
+```
+
+**This means your local Terraform is still using AWS provider v5.**  
+AWS provider **v6** removed `resolve_conflicts` entirely. The fixed code requires **AWS provider >= 6.52**.
+
+#### Fix (Windows / PowerShell)
+
+From `deploy\aws\terraform`:
+
+```powershell
+# 1. Pull latest code
+git pull
+
+# 2. Wipe old module/provider cache (required)
+Remove-Item -Recurse -Force .terraform -ErrorAction SilentlyContinue
+Remove-Item -Force .terraform.lock.hcl -ErrorAction SilentlyContinue
+
+# 3. Re-init with upgrades (must show aws 6.x)
+terraform init -upgrade
+
+# 4. Confirm provider version
+terraform version
+terraform providers
+
+# 5. Plan again — warning should be gone
+terraform plan
+```
+
+You should see something like:
+
+```text
+provider[registry.terraform.io/hashicorp/aws] 6.55.0
+```
+
+If it still shows `5.x`, init did not upgrade — delete `.terraform` again and rerun `terraform init -upgrade`.
+
+> This was only a **warning**, not a hard error. Older applies could succeed; after upgrading, the warning disappears.

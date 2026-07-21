@@ -2,10 +2,10 @@
 *.tfstate
 *.tfstate.*
 *.tfplan
-.terraform.lock.hcl
 terraform.tfvars
 crash.log
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+# Keep .terraform.lock.hcl in git so CI/local use AWS provider v6+
