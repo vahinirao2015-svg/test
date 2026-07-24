@@ -1,0 +1,18 @@
+location            = "eastus"
+resource_group_name = "rg-appgw-webapp"
+prefix              = "webapp"
+
+# App Service
+app_service_sku     = "B1"
+app_service_os_type = "Linux"
+
+# Application Gateway (Standard_v2 requires Standard public IP)
+app_gateway_sku_name = "Standard_v2"
+app_gateway_sku_tier = "Standard_v2"
+app_gateway_capacity = 2
+
+tags = {
+  environment = "demo"
+  managed_by  = "terraform"
+  project     = "appgw-appservice"
+}
