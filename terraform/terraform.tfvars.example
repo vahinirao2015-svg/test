@@ -1,0 +1,23 @@
+location            = "eastus"
+resource_group_name = "rg-appgw-webapp"
+prefix              = "webapp"
+
+# App Service
+# Windows + F1 uses shared hosting and works when Total VMs quota is 0.
+# Linux has no Free tier — use app_service_os_type = "Linux" with B1 only
+# after requesting compute quota in the Azure portal.
+app_service_sku     = "F1"
+app_service_os_type = "Windows"
+
+# Application Gateway (Standard_v2 requires Standard public IP)
+app_gateway_sku_name         = "Standard_v2"
+app_gateway_sku_tier         = "Standard_v2"
+app_gateway_capacity         = 1
+# TLS 1.2+ policy (replaces deprecated AppGwSslPolicy20150501 default)
+app_gateway_ssl_policy_name  = "AppGwSslPolicy20220101"
+
+tags = {
+  environment = "demo"
+  managed_by  = "terraform"
+  project     = "appgw-appservice"
+}
