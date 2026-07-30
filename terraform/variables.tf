@@ -91,6 +91,25 @@ variable "app_gateway_capacity" {
   }
 }
 
+variable "app_gateway_ssl_policy_name" {
+  description = <<-EOT
+    Predefined Application Gateway SSL/TLS policy.
+    Use AppGwSslPolicy20220101 or AppGwSslPolicy20220101S (TLS 1.2+).
+    Do not use deprecated AppGwSslPolicy20150501 / AppGwSslPolicy20170401.
+  EOT
+  type        = string
+  default     = "AppGwSslPolicy20220101"
+
+  validation {
+    condition = contains([
+      "AppGwSslPolicy20220101",
+      "AppGwSslPolicy20220101S",
+      "AppGwSslPolicy20170401S",
+    ], var.app_gateway_ssl_policy_name)
+    error_message = "app_gateway_ssl_policy_name must be a supported TLS 1.2+ policy (AppGwSslPolicy20220101, AppGwSslPolicy20220101S, or AppGwSslPolicy20170401S)."
+  }
+}
+
 variable "backend_http_port" {
   description = "Port used by Application Gateway to reach App Service."
   type        = number

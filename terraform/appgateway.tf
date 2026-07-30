@@ -10,6 +10,13 @@ resource "azurerm_application_gateway" "main" {
     capacity = var.app_gateway_capacity
   }
 
+  # Explicit modern TLS policy. Without this, older API defaults apply
+  # AppGwSslPolicy20150501 (TLS 1.0/1.1), which is deprecated.
+  ssl_policy {
+    policy_type = "Predefined"
+    policy_name = var.app_gateway_ssl_policy_name
+  }
+
   gateway_ip_configuration {
     name      = "appgw-ip-config"
     subnet_id = azurerm_subnet.appgw.id

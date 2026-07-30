@@ -96,6 +96,7 @@ app_service_sku     = "B1"
 4. App Service `https_only` is `false` so the gateway can reach it on HTTP (port 80). For production, prefer HTTPS end-to-end and attach a certificate to the gateway listener.
 5. Application Gateway **Standard_v2 / WAF_v2** requires a **Standard** SKU public IP.
 6. Default is **Windows + F1** so subscriptions with no compute quota can deploy.
+7. SSL/TLS policy is set explicitly to **`AppGwSslPolicy20220101`** (TLS 1.2+). This replaces the deprecated default `AppGwSslPolicy20150501`. Use `AppGwSslPolicy20220101S` for the stricter variant.
 
 ## Useful variables
 
@@ -107,6 +108,7 @@ app_service_sku     = "B1"
 | `app_service_sku` | `F1` | `F1` for zero quota; `B1+` after quota increase |
 | `app_gateway_sku_name` | `Standard_v2` | Gateway SKU (`WAF_v2` also supported) |
 | `app_gateway_capacity` | `1` | Gateway instances |
+| `app_gateway_ssl_policy_name` | `AppGwSslPolicy20220101` | Predefined TLS 1.2+ SSL policy |
 
 ## Destroy
 
