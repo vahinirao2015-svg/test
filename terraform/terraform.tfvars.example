@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and customize as needed.
+aws_region     = "us-east-1"
+prefix         = "webapp"
+instance_type  = "t3.micro"
+instance_count = 2
+backend_port   = 80
+
+# Optional: ACM certificate ARN enables HTTPS (443) and HTTP→HTTPS redirect.
+# certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Optional: existing key pair for SSH (also set enable_ssh = true).
+# key_name   = "my-keypair"
+# enable_ssh = true
+# ssh_cidr   = "203.0.113.10/32"
+
+tags = {
+  Project   = "aws-alb-ec2"
+  ManagedBy = "terraform"
+  Env       = "dev"
+}
