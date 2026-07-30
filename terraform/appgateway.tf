@@ -28,7 +28,7 @@ resource "azurerm_application_gateway" "main" {
   # Backend pool targets the Azure App Service via its public FQDN.
   backend_address_pool {
     name  = "backend-pool-appservice"
-    fqdns = [azurerm_linux_web_app.web.default_hostname]
+    fqdns = [local.app_service_hostname]
   }
 
   # Probe App Service using its hostname so the site accepts the request.
@@ -73,6 +73,7 @@ resource "azurerm_application_gateway" "main" {
   }
 
   depends_on = [
+    azurerm_windows_web_app.web,
     azurerm_linux_web_app.web,
   ]
 }

@@ -36,17 +36,21 @@ variable "appgw_subnet_prefix" {
 variable "app_service_sku" {
   description = <<-EOT
     App Service Plan SKU name.
-    Use F1 (Free) when the subscription has no dedicated compute quota
-    (error: Current Limit (Total VMs): 0). Use B1/P1v3 after requesting quota.
+    F1/D1 are shared (Windows only) and do not need dedicated VM quota.
+    Linux plans require B1 or higher and regional compute quota > 0.
   EOT
   type        = string
   default     = "F1"
 }
 
 variable "app_service_os_type" {
-  description = "App Service Plan OS type."
+  description = <<-EOT
+    App Service Plan OS type.
+    Default Windows + F1 works on subscriptions with Total VMs quota = 0.
+    Linux requires a paid SKU (B1+) and compute quota.
+  EOT
   type        = string
-  default     = "Linux"
+  default     = "Windows"
 
   validation {
     condition     = contains(["Linux", "Windows"], var.app_service_os_type)

@@ -15,17 +15,22 @@ output "application_gateway_url" {
 
 output "app_service_name" {
   description = "Name of the Azure App Service (web app)."
-  value       = azurerm_linux_web_app.web.name
+  value       = local.app_service_name
 }
 
 output "app_service_default_hostname" {
   description = "Default hostname of the App Service (backend pool target)."
-  value       = azurerm_linux_web_app.web.default_hostname
+  value       = local.app_service_hostname
 }
 
 output "app_service_direct_url" {
   description = "Direct App Service URL (bypasses Application Gateway)."
-  value       = "https://${azurerm_linux_web_app.web.default_hostname}"
+  value       = "https://${local.app_service_hostname}"
+}
+
+output "app_service_os_type" {
+  description = "OS type of the App Service Plan."
+  value       = var.app_service_os_type
 }
 
 output "application_gateway_id" {
@@ -35,5 +40,5 @@ output "application_gateway_id" {
 
 output "backend_pool_fqdn" {
   description = "FQDN registered in the Application Gateway backend pool."
-  value       = azurerm_linux_web_app.web.default_hostname
+  value       = local.app_service_hostname
 }

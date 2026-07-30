@@ -19,7 +19,7 @@ Internet
 | Resource Group | Container for all resources |
 | Virtual Network + subnet | Dedicated subnet for Application Gateway |
 | Public IP (Static, Standard) | Frontend entry point for the web app |
-| App Service Plan + Linux Web App | Backend web application |
+| App Service Plan + Web App | Backend web application (Windows Free by default) |
 | Application Gateway (Standard_v2) | Routes public traffic to App Service |
 
 ## Prerequisites
@@ -33,14 +33,23 @@ Internet
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars as needed
+# Important: use Windows + F1 if your subscription has Total VMs quota = 0
 
 terraform init
 terraform plan
 terraform apply
 ```
 
-After apply, open the Application Gateway URL from outputs:
+If you already have a `terraform.tfvars`, set:
+
+```hcl
+app_service_os_type = "Windows"
+app_service_sku     = "F1"
+```
+
+Then re-run `terraform apply`.
+
+After apply:
 
 ```bash
 terraform output application_gateway_url
@@ -49,17 +58,35 @@ terraform output public_ip_address
 
 ## Quota troubleshooting
 
-If `terraform apply` fails on `azurerm_service_plan` with:
+If `azurerm_service_plan` fails with:
 
 `Unauthorized` / `Current Limit (Total VMs): 0`
 
-your subscription has **no dedicated compute quota** in that region. Paid App Service SKUs (`B1`, `S1`, `P1v3`, …) need at least 1 VM of quota.
+### Why F1 + Linux still fails
 
-**Fix options:**
+**Linux App Service has no Free/Shared tier.** Plans start at Basic (`B1`) and always need dedicated compute quota. Setting `F1` with `Linux` still requires 1 VM of quota.
 
-1. **Use Free SKU (default in this repo):** keep `app_service_sku = "F1"` — shared hosting, no dedicated VM quota.
-2. **Request quota:** Azure Portal → Subscriptions → Usage + quotas → raise **App Service** / compute quota for the region, then set `app_service_sku = "B1"`.
-3. **Try another region:** set `location` to a region where your subscription already has quota.
+### Fix for zero VM quota
+
+Use the defaults (already set in this repo):
+
+```hcl
+app_service_os_type = "Windows"
+app_service_sku     = "F1"
+```
+
+Windows Free uses shared hosting and does not consume dedicated VM quota.
+
+### Linux / paid SKUs
+
+1. Azure Portal → Subscriptions → **Usage + quotas**
+2. Request App Service / compute quota for your region (at least 1)
+3. Then set:
+
+```hcl
+app_service_os_type = "Linux"
+app_service_sku     = "B1"
+```
 
 ## Key configuration notes
 
@@ -68,17 +95,16 @@ your subscription has **no dedicated compute quota** in that region. Paid App Se
 3. **Health probe** also picks the host name from backend HTTP settings.
 4. App Service `https_only` is `false` so the gateway can reach it on HTTP (port 80). For production, prefer HTTPS end-to-end and attach a certificate to the gateway listener.
 5. Application Gateway **Standard_v2 / WAF_v2** requires a **Standard** SKU public IP.
-6. Default App Service SKU is **F1** so low-quota / new subscriptions can deploy without requesting VM capacity first.
+6. Default is **Windows + F1** so subscriptions with no compute quota can deploy.
 
 ## Useful variables
-
-See `variables.tf` and `terraform.tfvars.example`. Common ones:
 
 | Variable | Default | Description |
 |---|---|---|
 | `location` | `eastus` | Azure region |
 | `prefix` | `webapp` | Resource name prefix (2–12 chars) |
-| `app_service_sku` | `F1` | App Service Plan SKU (`F1` avoids VM quota; use `B1+` after quota increase) |
+| `app_service_os_type` | `Windows` | `Windows` (supports F1) or `Linux` (needs B1+) |
+| `app_service_sku` | `F1` | `F1` for zero quota; `B1+` after quota increase |
 | `app_gateway_sku_name` | `Standard_v2` | Gateway SKU (`WAF_v2` also supported) |
 | `app_gateway_capacity` | `1` | Gateway instances |
 
@@ -96,6 +122,6 @@ terraform destroy
 | `providers.tf` | AzureRM provider |
 | `variables.tf` | Input variables |
 | `networking.tf` | RG, VNet, subnet, public IP |
-| `appservice.tf` | App Service Plan + Linux Web App |
+| `appservice.tf` | App Service Plan + Windows/Linux Web App |
 | `appgateway.tf` | Application Gateway, backend pool, listener, rule |
 | `outputs.tf` | Public IP, URLs, resource IDs |
