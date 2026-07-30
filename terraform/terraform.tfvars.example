@@ -3,13 +3,15 @@ resource_group_name = "rg-appgw-webapp"
 prefix              = "webapp"
 
 # App Service
-app_service_sku     = "B1"
+# F1 avoids dedicated VM quota (needed when Azure returns Total VMs limit = 0).
+# After raising App Service / compute quota, switch to B1 or higher.
+app_service_sku     = "F1"
 app_service_os_type = "Linux"
 
 # Application Gateway (Standard_v2 requires Standard public IP)
 app_gateway_sku_name = "Standard_v2"
 app_gateway_sku_tier = "Standard_v2"
-app_gateway_capacity = 2
+app_gateway_capacity = 1
 
 tags = {
   environment = "demo"

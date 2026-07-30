@@ -34,9 +34,13 @@ variable "appgw_subnet_prefix" {
 }
 
 variable "app_service_sku" {
-  description = "App Service Plan SKU name (e.g. B1, P1v3)."
+  description = <<-EOT
+    App Service Plan SKU name.
+    Use F1 (Free) when the subscription has no dedicated compute quota
+    (error: Current Limit (Total VMs): 0). Use B1/P1v3 after requesting quota.
+  EOT
   type        = string
-  default     = "B1"
+  default     = "F1"
 }
 
 variable "app_service_os_type" {
@@ -73,9 +77,9 @@ variable "app_gateway_sku_tier" {
 }
 
 variable "app_gateway_capacity" {
-  description = "Application Gateway instance capacity (autoscaling disabled)."
+  description = "Application Gateway instance capacity (autoscaling disabled). Use 1 for demos / low-quota subscriptions."
   type        = number
-  default     = 2
+  default     = 1
 
   validation {
     condition     = var.app_gateway_capacity >= 1 && var.app_gateway_capacity <= 125

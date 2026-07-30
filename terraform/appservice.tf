@@ -5,6 +5,9 @@ resource "azurerm_service_plan" "main" {
   os_type             = var.app_service_os_type
   sku_name            = var.app_service_sku
   tags                = var.tags
+
+  # F1/D1 use shared infrastructure and do not consume dedicated VM quota.
+  # Paid SKUs (B1+) require regional compute quota > 0.
 }
 
 resource "azurerm_linux_web_app" "web" {
