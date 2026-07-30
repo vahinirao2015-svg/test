@@ -45,6 +45,17 @@ variable "instance_type" {
   default     = "t3.micro"
 }
 
+variable "root_volume_size" {
+  description = "Root EBS volume size in GiB. Must be >= the AMI snapshot size (Amazon Linux 2023 typically requires 30)."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.root_volume_size >= 30
+    error_message = "root_volume_size must be at least 30 GiB for the default Amazon Linux 2023 AMI."
+  }
+}
+
 variable "instance_count" {
   description = "Number of EC2 instances in the ALB target group (backend pool)."
   type        = number

@@ -62,9 +62,9 @@ Open the ALB URL (or any Elastic IP on port 80). Targets may take 1–2 minutes 
 |---|---|
 | Application Load Balancer | ~$16–22 |
 | Elastic IPs (attached to ALB) | $0 |
-| 2× t3.micro + 8 GB gp3 | ~$16 |
+| 2× t3.micro + 30 GB gp3 | ~$20 |
 | 1× NAT Gateway | ~$32 |
-| **Total** | **~$65–75/month** |
+| **Total** | **~$70–80/month** |
 
 ## HTTPS (optional)
 
@@ -83,6 +83,7 @@ This creates an HTTPS listener (TLS 1.3/1.2) and redirects HTTP → HTTPS.
 | `aws_region` | `us-east-1` | AWS region |
 | `prefix` | `webapp` | Resource name prefix (2–12 chars) |
 | `instance_type` | `t3.micro` | EC2 size |
+| `root_volume_size` | `30` | Root EBS GiB (AL2023 AMI minimum) |
 | `instance_count` | `2` | Backend pool size |
 | `backend_port` | `80` | Port on EC2 |
 | `certificate_arn` | `""` | ACM cert for HTTPS |
