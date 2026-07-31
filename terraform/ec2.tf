@@ -23,25 +23,71 @@ data "aws_ami" "amazon_linux" {
 locals {
   ami_id = var.ami_id != "" ? var.ami_id : data.aws_ami.amazon_linux[0].id
 
+  # Bootstrap must be resilient: a failed dnf package name previously aborted
+  # user-data before gunicorn started, leaving ALB targets unhealthy (502).
   user_data = <<-EOF
     #!/bin/bash
-    set -euo pipefail
+    set -uo pipefail
     exec > >(tee /var/log/attendance-bootstrap.log | logger -t user-data -s 2>/dev/console) 2>&1
 
-    dnf -y update
-    dnf -y install python3 python3-pip python3-virtualenv unzip
-    command -v aws >/dev/null 2>&1 || dnf -y install awscli-2 || dnf -y install aws-cli || dnf -y install awscli
+    echo "Starting Daymark bootstrap"
+
+    # Do not fail the whole bootstrap on optional package names / update noise.
+    dnf -y update || echo "dnf update failed (continuing)"
+    dnf -y install python3 python3-pip unzip || dnf -y install python3 unzip
+    if ! command -v aws >/dev/null 2>&1; then
+      dnf -y install awscli-2 || dnf -y install aws-cli || dnf -y install awscli || true
+    fi
+
+    # Wait for instance profile credentials (IAM eventual consistency + IMDSv2).
+    for i in $(seq 1 30); do
+      TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || true)
+      if [ -n "$${TOKEN}" ]; then
+        CREDS=$(curl -fsS -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null || true)
+      else
+        CREDS=$(curl -fsS http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null || true)
+      fi
+      if [ -n "$${CREDS}" ]; then
+        echo "Instance profile is available"
+        break
+      fi
+      echo "Waiting for instance profile ($i/30)"
+      sleep 2
+    done
 
     APP_DIR=/opt/attendance
     mkdir -p "$${APP_DIR}"
-    aws s3 cp "s3://${aws_s3_bucket.app.id}/${aws_s3_object.attendance_app.key}" /tmp/attendance-app.zip
+
+    DOWNLOAD_OK=0
+    for i in $(seq 1 20); do
+      if aws s3 cp "s3://${aws_s3_bucket.app.id}/${aws_s3_object.attendance_app.key}" /tmp/attendance-app.zip; then
+        DOWNLOAD_OK=1
+        break
+      fi
+      echo "S3 download failed ($i/20); retrying"
+      sleep 3
+    done
+    if [ "$${DOWNLOAD_OK}" -ne 1 ]; then
+      echo "FATAL: could not download app package from S3"
+      exit 1
+    fi
     unzip -o /tmp/attendance-app.zip -d "$${APP_DIR}"
 
     python3 -m venv "$${APP_DIR}/.venv"
     "$${APP_DIR}/.venv/bin/pip" install --upgrade pip
     "$${APP_DIR}/.venv/bin/pip" install -r "$${APP_DIR}/requirements.txt"
 
-    cat >/etc/systemd/system/attendance.service <<UNIT
+    umask 077
+    cat >/etc/attendance.env <<ENV
+AWS_REGION=${var.aws_region}
+AWS_DEFAULT_REGION=${var.aws_region}
+DB_SECRET_ARN=${aws_secretsmanager_secret.db.arn}
+APP_NAME=${var.app_name}
+SECRET_KEY=${random_password.app_secret.result}
+ENV
+    chmod 600 /etc/attendance.env
+
+    cat >/etc/systemd/system/attendance.service <<'UNIT'
 [Unit]
 Description=Daymark attendance web app
 After=network-online.target
@@ -50,21 +96,34 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/attendance
-Environment=AWS_REGION=${var.aws_region}
-Environment=AWS_DEFAULT_REGION=${var.aws_region}
-Environment=DB_SECRET_ARN=${aws_secretsmanager_secret.db.arn}
-Environment=APP_NAME=${var.app_name}
-Environment=SECRET_KEY=${random_password.app_secret.result}
-ExecStart=/opt/attendance/.venv/bin/gunicorn -b 0.0.0.0:${var.backend_port} --workers 2 --timeout 120 wsgi:app
+EnvironmentFile=/etc/attendance.env
+ExecStart=/opt/attendance/.venv/bin/gunicorn -b 0.0.0.0:BACKEND_PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - wsgi:app
 Restart=always
-RestartSec=5
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 UNIT
+    sed -i "s/BACKEND_PORT/${var.backend_port}/" /etc/systemd/system/attendance.service
 
     systemctl daemon-reload
     systemctl enable --now attendance.service
+
+    # Confirm the process is listening before finishing user-data.
+    for i in $(seq 1 60); do
+      if curl -fsS "http://127.0.0.1:${var.backend_port}/health" >/dev/null 2>&1; then
+        echo "Attendance app is healthy on :${var.backend_port}"
+        exit 0
+      fi
+      echo "Waiting for local /health ($i/60)"
+      systemctl is-active --quiet attendance.service || systemctl restart attendance.service || true
+      sleep 2
+    done
+
+    echo "Bootstrap finished but /health not yet OK; dumping service logs"
+    systemctl status attendance.service --no-pager || true
+    journalctl -u attendance.service -n 120 --no-pager || true
+    exit 0
   EOF
 }
 
@@ -119,9 +178,10 @@ resource "aws_instance" "backend" {
   }
 
   metadata_options {
-    http_endpoint               = "enabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 1
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+    # Hop limit 2 helps awscli/SSM agent reliably use IMDSv2.
+    http_put_response_hop_limit = 2
   }
 
   depends_on = [

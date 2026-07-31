@@ -34,11 +34,12 @@ resource "aws_lb_target_group" "backend" {
     enabled             = true
     path                = var.health_check_path
     protocol            = "HTTP"
-    matcher             = "200-399"
-    interval            = 30
+    port                = "traffic-port"
+    matcher             = "200"
+    interval            = 15
     timeout             = 5
     healthy_threshold   = 2
-    unhealthy_threshold = 3
+    unhealthy_threshold = 5
   }
 
   deregistration_delay = 30

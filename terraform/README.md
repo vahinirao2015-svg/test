@@ -102,9 +102,20 @@ Set `certificate_arn` to an ACM certificate in the same region:
 certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID"
 ```
 
-## Updating the app
+## Troubleshooting unhealthy targets / 502 Bad Gateway
 
-Change files under `../app`, then re-apply. A new app zip is uploaded to S3; EC2 `user_data` replacement recreates instances so they pull the new package.
+1. Confirm `backend_port = 8080` and `health_check_path = "/health"` in `terraform.tfvars`.
+2. After apply, wait 3–5 minutes for instance user-data to finish (Python deps + gunicorn).
+3. On an instance (SSM Session Manager):
+
+```bash
+sudo tail -n 200 /var/log/attendance-bootstrap.log
+sudo systemctl status attendance.service --no-pager
+sudo journalctl -u attendance.service -n 100 --no-pager
+curl -v http://127.0.0.1:8080/health
+```
+
+4. Target group health checks must reach EC2 security group port `backend_port` from the ALB security group.
 
 ## Destroy
 

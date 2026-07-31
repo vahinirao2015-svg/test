@@ -7,6 +7,9 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+# Used only so gunicorn can import/bind before Secrets Manager + RDS are ready.
+PLACEHOLDER_DATABASE_URI = "postgresql+psycopg://pending:pending@127.0.0.1:1/pending"
+
 
 def resolve_database_url():
     """Prefer DATABASE_URL; otherwise load JSON secret from Secrets Manager."""
@@ -28,6 +31,6 @@ def resolve_database_url():
     user = quote_plus(payload["username"])
     password = quote_plus(payload["password"])
     host = payload["host"]
-    port = payload.get("port", 5432)
+    port = int(payload.get("port", 5432))
     dbname = payload.get("dbname", "attendance")
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{dbname}"
