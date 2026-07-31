@@ -38,9 +38,14 @@ output "backend_private_ips" {
   value       = aws_instance.backend[*].private_ip
 }
 
-output "db_cluster_endpoint" {
-  description = "Aurora PostgreSQL cluster writer endpoint."
-  value       = aws_rds_cluster.attendance.endpoint
+output "db_endpoint" {
+  description = "RDS PostgreSQL endpoint address."
+  value       = aws_db_instance.attendance.address
+}
+
+output "db_instance_identifier" {
+  description = "RDS PostgreSQL instance identifier."
+  value       = aws_db_instance.attendance.id
 }
 
 output "db_secret_arn" {

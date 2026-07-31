@@ -1,19 +1,19 @@
 # Copy to terraform.tfvars and customize as needed.
-aws_region     = "us-east-1"
-prefix         = "webapp"
-app_name       = "Daymark"
-instance_type  = "t3.micro"
+aws_region       = "us-east-1"
+prefix           = "webapp"
+app_name         = "Daymark"
+instance_type    = "t3.micro"
 root_volume_size = 30
-instance_count = 2
-backend_port   = 8080
+instance_count   = 2
+backend_port     = 8080
 health_check_path = "/health"
 
-# Aurora Serverless v2 (PostgreSQL)
-db_name            = "attendance"
-db_username        = "attendance_admin"
-# db_engine_version  = "15.10"
-db_min_capacity    = 0.5
-db_max_capacity    = 4
+# RDS PostgreSQL (Free Tier friendly; Aurora VPC clusters are blocked on Free Plan)
+db_name               = "attendance"
+db_username           = "attendance_admin"
+db_instance_class     = "db.t4g.micro"
+db_allocated_storage  = 20
+# db_engine_version   = "16.6"
 
 # Optional: ACM certificate ARN enables HTTPS (443) and HTTP→HTTPS redirect.
 # certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

@@ -128,7 +128,7 @@ resource "aws_instance" "backend" {
     aws_nat_gateway.main,
     aws_s3_object.attendance_app,
     aws_secretsmanager_secret_version.db,
-    aws_rds_cluster_instance.attendance,
+    aws_db_instance.attendance,
     aws_iam_role_policy.ec2_app,
   ]
 

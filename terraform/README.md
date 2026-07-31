@@ -1,11 +1,15 @@
-# Daymark attendance on AWS ALB + EC2 + Aurora
+# Daymark attendance on AWS ALB + EC2 + RDS
 
 Terraform configuration that provisions an internet-facing **Application Load Balancer** with:
 
 - **Static public Elastic IPs** (one per AZ) on the ALB
 - A **target group backend pool** of EC2 instances running the **Daymark** attendance web app
-- **Aurora PostgreSQL Serverless v2** for attendance data
-- VPC with public (ALB) and private (EC2 + Aurora) subnets across two AZs
+- **RDS PostgreSQL** (`db.t4g.micro`) for attendance data
+- VPC with public (ALB) and private (EC2 + RDS) subnets across two AZs
+
+> **Note:** Standard Aurora clusters in a VPC are blocked on AWS Free Plan accounts
+> (`FreeTierRestrictionError` / `WithExpressConfiguration`). This stack uses RDS
+> PostgreSQL so private EC2 backends can reach the database inside the VPC.
 
 ## Architecture
 
@@ -17,7 +21,7 @@ Internet
                          |                                    |
                     HTTP :80 (or HTTPS :443)            Private subnets
                     Health check /health                      |
-                                                         [Aurora PostgreSQL]
+                                                         [RDS PostgreSQL]
                                                          Secrets Manager
 ```
 
@@ -29,7 +33,7 @@ Internet
 | Application Load Balancer | Layer-7 HTTP/HTTPS entry point |
 | Target group | Backend pool registering EC2 instances |
 | EC2 (Amazon Linux 2023) | Runs Daymark attendance (Flask + gunicorn :8080) |
-| Aurora PostgreSQL Serverless v2 | Employees + attendance records |
+| RDS PostgreSQL | Employees + attendance records |
 | Secrets Manager | DB credentials for the app |
 | S3 (private) | Attendance app package downloaded at instance boot |
 
@@ -37,7 +41,7 @@ Internet
 
 - [Terraform](https://www.terraform.io/downloads) >= 1.5
 - AWS credentials configured (`aws configure` or environment variables)
-- IAM permissions to create VPC, EC2, ELB, RDS/Aurora, S3, IAM roles, Secrets Manager, and Elastic IPs
+- IAM permissions to create VPC, EC2, ELB, RDS, S3, IAM roles, Secrets Manager, and Elastic IPs
 
 ## Quick start
 
@@ -48,6 +52,16 @@ cp terraform.tfvars.example terraform.tfvars
 
 terraform init
 terraform plan
+terraform apply
+```
+
+If a previous apply failed on Aurora, remove stale Aurora resources from state if needed, then re-apply:
+
+```bash
+terraform state list | grep -E 'rds_cluster|rds_cluster_instance' || true
+# If listed and not in AWS, drop them from state:
+# terraform state rm 'aws_rds_cluster.attendance'
+# terraform state rm 'aws_rds_cluster_instance.attendance'
 terraform apply
 ```
 
@@ -66,7 +80,7 @@ Open the ALB URL. First boot installs Python deps and may take a few minutes bef
 - On-floor list and recent activity
 - `/records` history page
 - `/health` for ALB health checks
-- Data persisted in Aurora PostgreSQL
+- Data persisted in RDS PostgreSQL
 
 ## Approximate monthly cost (us-east-1, 24/7, low traffic)
 
@@ -76,9 +90,9 @@ Open the ALB URL. First boot installs Python deps and may take a few minutes bef
 | Elastic IPs (attached to ALB) | $0 |
 | 2× t3.micro + 30 GB gp3 | ~$20 |
 | 1× NAT Gateway | ~$32 |
-| Aurora Serverless v2 (0.5–4 ACU) | ~$45–50 |
+| RDS PostgreSQL db.t4g.micro (20 GB) | ~$12–15 (often $0 in Free Tier) |
 | Secrets Manager | ~$0.40 |
-| **Total** | **~$115–130/month** |
+| **Total** | **~$80–90/month** (lower with Free Tier DB) |
 
 ## HTTPS (optional)
 
@@ -107,7 +121,7 @@ terraform destroy
 | `variables.tf` | Input variables |
 | `networking.tf` | VPC, subnets, IGW, NAT, Elastic IPs |
 | `security_groups.tf` | ALB and EC2 security groups |
-| `database.tf` | Aurora Serverless v2 + Secrets Manager |
+| `database.tf` | RDS PostgreSQL + Secrets Manager |
 | `app_deploy.tf` | S3 app package + EC2 IAM for S3/Secrets |
 | `ec2.tf` | Backend EC2 instances + bootstrap |
 | `alb.tf` | ALB, target group, listeners |

@@ -86,33 +86,39 @@ variable "app_name" {
 }
 
 variable "db_name" {
-  description = "Aurora PostgreSQL database name."
+  description = "RDS PostgreSQL database name."
   type        = string
   default     = "attendance"
 }
 
 variable "db_username" {
-  description = "Aurora master username."
+  description = "RDS master username."
   type        = string
   default     = "attendance_admin"
 }
 
 variable "db_engine_version" {
-  description = "Aurora PostgreSQL engine version. Leave empty to use the AWS default for aurora-postgresql."
+  description = "RDS PostgreSQL engine version. Leave empty to use the AWS default."
   type        = string
   default     = ""
 }
 
-variable "db_min_capacity" {
-  description = "Aurora Serverless v2 minimum ACU."
-  type        = number
-  default     = 0.5
+variable "db_instance_class" {
+  description = "RDS instance class. db.t4g.micro is Free Tier eligible."
+  type        = string
+  default     = "db.t4g.micro"
 }
 
-variable "db_max_capacity" {
-  description = "Aurora Serverless v2 maximum ACU."
+variable "db_allocated_storage" {
+  description = "Allocated storage for RDS in GiB."
   type        = number
-  default     = 4
+  default     = 20
+}
+
+variable "db_max_allocated_storage" {
+  description = "Max storage autoscaling limit in GiB. Set equal to allocated_storage to disable autoscaling."
+  type        = number
+  default     = 20
 }
 
 variable "certificate_arn" {

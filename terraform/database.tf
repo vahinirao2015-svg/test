@@ -6,7 +6,7 @@ resource "random_password" "db" {
 
 resource "aws_security_group" "db" {
   name_prefix = "${local.name_prefix}-db-"
-  description = "Aurora PostgreSQL access from attendance EC2 backends only"
+  description = "RDS PostgreSQL access from attendance EC2 backends only"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -43,50 +43,46 @@ resource "aws_db_subnet_group" "attendance" {
   }
 }
 
-resource "aws_rds_cluster" "attendance" {
-  cluster_identifier = "${local.name_prefix}-attendance"
-  engine             = "aurora-postgresql"
-  engine_mode        = "provisioned"
-  engine_version     = var.db_engine_version != "" ? var.db_engine_version : null
-  database_name      = var.db_name
-  master_username    = var.db_username
-  master_password    = random_password.db.result
+# Use RDS PostgreSQL (not Aurora). Free-plan AWS accounts reject standard
+# Aurora CreateDBCluster unless WithExpressConfiguration is used, and Express
+# clusters are outside the VPC so private EC2 backends cannot use them.
+resource "aws_db_instance" "attendance" {
+  identifier = "${local.name_prefix}-attendance"
+
+  engine                = "postgres"
+  engine_version        = var.db_engine_version != "" ? var.db_engine_version : null
+  instance_class        = var.db_instance_class
+  allocated_storage     = var.db_allocated_storage
+  max_allocated_storage = var.db_max_allocated_storage
+  storage_type          = "gp3"
+  storage_encrypted     = true
+
+  db_name  = var.db_name
+  username = var.db_username
+  password = random_password.db.result
 
   db_subnet_group_name   = aws_db_subnet_group.attendance.name
   vpc_security_group_ids = [aws_security_group.db.id]
+  publicly_accessible    = false
+  multi_az               = false
+  availability_zone      = local.azs[0]
 
-  storage_encrypted   = true
-  deletion_protection = false
-  skip_final_snapshot = true
-  apply_immediately   = true
+  backup_retention_period = 1
+  deletion_protection     = false
+  skip_final_snapshot     = true
+  apply_immediately       = true
 
-  serverlessv2_scaling_configuration {
-    min_capacity = var.db_min_capacity
-    max_capacity = var.db_max_capacity
-  }
-
-  tags = {
-    Name = "aurora-${local.name_prefix}-attendance"
-  }
-}
-
-resource "aws_rds_cluster_instance" "attendance" {
-  identifier         = "${local.name_prefix}-attendance-1"
-  cluster_identifier = aws_rds_cluster.attendance.id
-  instance_class     = "db.serverless"
-  engine             = aws_rds_cluster.attendance.engine
-  engine_version     = aws_rds_cluster.attendance.engine_version
-
-  publicly_accessible = false
+  # Avoid long-lived automated upgrades delaying destroy/replace in labs.
+  auto_minor_version_upgrade = true
 
   tags = {
-    Name = "aurora-instance-${local.name_prefix}-attendance-1"
+    Name = "rds-${local.name_prefix}-attendance"
   }
 }
 
 resource "aws_secretsmanager_secret" "db" {
   name_prefix             = "${local.name_prefix}-attendance-db-"
-  description             = "Attendance Aurora PostgreSQL credentials"
+  description             = "Attendance RDS PostgreSQL credentials"
   recovery_window_in_days = 0
 
   tags = {
@@ -99,8 +95,8 @@ resource "aws_secretsmanager_secret_version" "db" {
   secret_string = jsonencode({
     username = var.db_username
     password = random_password.db.result
-    host     = aws_rds_cluster.attendance.endpoint
-    port     = 5432
+    host     = aws_db_instance.attendance.address
+    port     = aws_db_instance.attendance.port
     dbname   = var.db_name
     engine   = "postgres"
   })
