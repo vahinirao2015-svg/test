@@ -68,15 +68,51 @@ variable "instance_count" {
 }
 
 variable "backend_port" {
-  description = "Port the EC2 backends listen on."
+  description = "Port the Daymark attendance app (gunicorn) listens on."
   type        = number
-  default     = 80
+  default     = 8080
 }
 
 variable "health_check_path" {
   description = "HTTP path used by the ALB target group health check."
   type        = string
-  default     = "/"
+  default     = "/health"
+}
+
+variable "app_name" {
+  description = "Brand name shown in the attendance web UI."
+  type        = string
+  default     = "Daymark"
+}
+
+variable "db_name" {
+  description = "Aurora PostgreSQL database name."
+  type        = string
+  default     = "attendance"
+}
+
+variable "db_username" {
+  description = "Aurora master username."
+  type        = string
+  default     = "attendance_admin"
+}
+
+variable "db_engine_version" {
+  description = "Aurora PostgreSQL engine version. Leave empty to use the AWS default for aurora-postgresql."
+  type        = string
+  default     = ""
+}
+
+variable "db_min_capacity" {
+  description = "Aurora Serverless v2 minimum ACU."
+  type        = number
+  default     = 0.5
+}
+
+variable "db_max_capacity" {
+  description = "Aurora Serverless v2 maximum ACU."
+  type        = number
+  default     = 4
 }
 
 variable "certificate_arn" {
@@ -113,7 +149,7 @@ variable "tags" {
   description = "Tags applied to all supported resources via the provider default_tags."
   type        = map(string)
   default = {
-    Project   = "aws-alb-ec2"
+    Project   = "daymark-attendance"
     ManagedBy = "terraform"
   }
 }

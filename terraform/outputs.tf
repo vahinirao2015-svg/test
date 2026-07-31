@@ -14,7 +14,7 @@ output "alb_dns_name" {
 }
 
 output "alb_url" {
-  description = "HTTP URL for the Application Load Balancer."
+  description = "HTTP URL for the Daymark attendance app via the ALB."
   value       = "http://${aws_lb.app.dns_name}"
 }
 
@@ -29,11 +29,26 @@ output "target_group_arn" {
 }
 
 output "backend_instance_ids" {
-  description = "IDs of EC2 instances in the backend pool."
+  description = "IDs of EC2 instances running the attendance app."
   value       = aws_instance.backend[*].id
 }
 
 output "backend_private_ips" {
   description = "Private IP addresses of EC2 backend instances."
   value       = aws_instance.backend[*].private_ip
+}
+
+output "db_cluster_endpoint" {
+  description = "Aurora PostgreSQL cluster writer endpoint."
+  value       = aws_rds_cluster.attendance.endpoint
+}
+
+output "db_secret_arn" {
+  description = "Secrets Manager ARN with database credentials."
+  value       = aws_secretsmanager_secret.db.arn
+}
+
+output "app_bucket" {
+  description = "S3 bucket containing the deployed attendance app package."
+  value       = aws_s3_bucket.app.bucket
 }
