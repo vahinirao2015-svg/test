@@ -34,7 +34,7 @@ resource "aws_lb_target_group" "backend" {
     enabled             = true
     path                = var.health_check_path
     protocol            = "HTTP"
-    port                = "traffic-port"
+    port                = tostring(var.backend_port)
     matcher             = "200"
     interval            = 15
     timeout             = 5

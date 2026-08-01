@@ -151,6 +151,12 @@ variable "ssh_cidr" {
   default     = "0.0.0.0/0"
 }
 
+variable "enable_public_app_access" {
+  description = "Place EC2 backends in public subnets with Elastic IPs and allow direct internet access to backend_port (for debugging)."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags applied to all supported resources via the provider default_tags."
   type        = map(string)

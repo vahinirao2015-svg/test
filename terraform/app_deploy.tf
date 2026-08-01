@@ -71,6 +71,23 @@ resource "aws_iam_role_policy" "ec2_app" {
         Resource = ["${aws_s3_bucket.app.arn}/${aws_s3_object.attendance_app.key}"]
       },
       {
+        Sid      = "WriteBootstrapLogs"
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = ["${aws_s3_bucket.app.arn}/logs/*"]
+      },
+      {
+        Sid      = "ListBootstrapLogs"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket"]
+        Resource = [aws_s3_bucket.app.arn]
+        Condition = {
+          StringLike = {
+            "s3:prefix" = ["logs", "logs/*"]
+          }
+        }
+      },
+      {
         Sid      = "ReadDbSecret"
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]

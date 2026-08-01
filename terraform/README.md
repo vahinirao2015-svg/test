@@ -102,11 +102,35 @@ Set `certificate_arn` to an ACM certificate in the same region:
 certificate_arn = "arn:aws:acm:us-east-1:ACCOUNT:certificate/UUID"
 ```
 
+## Public EC2 access (default)
+
+With `enable_public_app_access = true` (default):
+
+- Backends run in **public subnets**
+- Each instance gets a dedicated **Elastic IP**
+- Security group allows direct access to `backend_port` (8080) from the internet
+
+```bash
+terraform output backend_public_ips
+terraform output backend_direct_urls
+terraform output backend_health_urls
+```
+
+Open a `backend_health_urls` value in a browser. If that fails, the app/bootstrap is broken (not just the ALB).
+
 ## Troubleshooting unhealthy targets / 502 Bad Gateway
 
 1. Confirm `backend_port = 8080` and `health_check_path = "/health"` in `terraform.tfvars`.
 2. After apply, wait 3–5 minutes for instance user-data to finish (Python deps + gunicorn).
-3. On an instance (SSM Session Manager):
+3. Hit an instance public health URL from `terraform output backend_health_urls`.
+4. Pull bootstrap/service logs from S3 (uploaded automatically at end of user-data):
+
+```bash
+terraform output instance_logs_prefix
+../scripts/pull-ec2-logs.sh "$(terraform output -raw app_bucket)"
+```
+
+5. Or on an instance (SSM Session Manager / SSH):
 
 ```bash
 sudo tail -n 200 /var/log/attendance-bootstrap.log
@@ -114,8 +138,6 @@ sudo systemctl status attendance.service --no-pager
 sudo journalctl -u attendance.service -n 100 --no-pager
 curl -v http://127.0.0.1:8080/health
 ```
-
-4. Target group health checks must reach EC2 security group port `backend_port` from the ALB security group.
 
 ## Destroy
 

@@ -38,6 +38,25 @@ output "backend_private_ips" {
   value       = aws_instance.backend[*].private_ip
 }
 
+output "backend_public_ips" {
+  description = "Public Elastic IP addresses of EC2 backends (when enable_public_app_access is true)."
+  value       = var.enable_public_app_access ? aws_eip.backend[*].public_ip : []
+}
+
+output "backend_direct_urls" {
+  description = "Direct HTTP URLs to each EC2 backend on backend_port."
+  value = var.enable_public_app_access ? [
+    for ip in aws_eip.backend[*].public_ip : "http://${ip}:${var.backend_port}/"
+  ] : []
+}
+
+output "backend_health_urls" {
+  description = "Direct health-check URLs for each EC2 backend."
+  value = var.enable_public_app_access ? [
+    for ip in aws_eip.backend[*].public_ip : "http://${ip}:${var.backend_port}${var.health_check_path}"
+  ] : []
+}
+
 output "db_endpoint" {
   description = "RDS PostgreSQL endpoint address."
   value       = aws_db_instance.attendance.address
@@ -54,6 +73,11 @@ output "db_secret_arn" {
 }
 
 output "app_bucket" {
-  description = "S3 bucket containing the deployed attendance app package."
+  description = "S3 bucket containing the deployed attendance app package and instance logs."
   value       = aws_s3_bucket.app.bucket
+}
+
+output "instance_logs_prefix" {
+  description = "S3 prefix where EC2 bootstrap/service logs are uploaded."
+  value       = "s3://${aws_s3_bucket.app.bucket}/logs/"
 }

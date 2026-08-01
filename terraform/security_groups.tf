@@ -50,6 +50,17 @@ resource "aws_security_group" "ec2" {
   }
 
   dynamic "ingress" {
+    for_each = var.enable_public_app_access ? [1] : []
+    content {
+      description = "Direct app access from Internet (debug)"
+      from_port   = var.backend_port
+      to_port     = var.backend_port
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
+  dynamic "ingress" {
     for_each = var.enable_ssh ? [1] : []
     content {
       description = "SSH access"
@@ -61,7 +72,7 @@ resource "aws_security_group" "ec2" {
   }
 
   egress {
-    description = "Allow all outbound (package updates via NAT)"
+    description = "Allow all outbound"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"

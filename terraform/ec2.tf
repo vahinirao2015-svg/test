@@ -23,8 +23,10 @@ data "aws_ami" "amazon_linux" {
 locals {
   ami_id = var.ami_id != "" ? var.ami_id : data.aws_ami.amazon_linux[0].id
 
-  # Bootstrap must be resilient: a failed dnf package name previously aborted
-  # user-data before gunicorn started, leaving ALB targets unhealthy (502).
+  # Public placement (default) gives each instance a public IP / EIP for direct
+  # debugging. Private placement keeps backends behind NAT only.
+  backend_subnet_ids = var.enable_public_app_access ? aws_subnet.public[*].id : aws_subnet.private[*].id
+
   user_data = <<-EOF
     #!/bin/bash
     set -uo pipefail
@@ -32,28 +34,29 @@ locals {
 
     echo "Starting Daymark bootstrap"
 
-    # Do not fail the whole bootstrap on optional package names / update noise.
     dnf -y update || echo "dnf update failed (continuing)"
     dnf -y install python3 python3-pip unzip || dnf -y install python3 unzip
     if ! command -v aws >/dev/null 2>&1; then
       dnf -y install awscli-2 || dnf -y install aws-cli || dnf -y install awscli || true
     fi
 
-    # Wait for instance profile credentials (IAM eventual consistency + IMDSv2).
     for i in $(seq 1 30); do
       TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null || true)
       if [ -n "$${TOKEN}" ]; then
         CREDS=$(curl -fsS -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null || true)
+        INSTANCE_ID=$(curl -fsS -H "X-aws-ec2-metadata-token: $${TOKEN}" http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || true)
       else
         CREDS=$(curl -fsS http://169.254.169.254/latest/meta-data/iam/security-credentials/ 2>/dev/null || true)
+        INSTANCE_ID=$(curl -fsS http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null || true)
       fi
       if [ -n "$${CREDS}" ]; then
-        echo "Instance profile is available"
+        echo "Instance profile is available ($${INSTANCE_ID})"
         break
       fi
       echo "Waiting for instance profile ($i/30)"
       sleep 2
     done
+    INSTANCE_ID=$${INSTANCE_ID:-unknown}
 
     APP_DIR=/opt/attendance
     mkdir -p "$${APP_DIR}"
@@ -69,6 +72,7 @@ locals {
     done
     if [ "$${DOWNLOAD_OK}" -ne 1 ]; then
       echo "FATAL: could not download app package from S3"
+      aws s3 cp /var/log/attendance-bootstrap.log "s3://${aws_s3_bucket.app.id}/logs/$${INSTANCE_ID}/bootstrap.log" || true
       exit 1
     fi
     unzip -o /tmp/attendance-app.zip -d "$${APP_DIR}"
@@ -109,20 +113,33 @@ UNIT
     systemctl daemon-reload
     systemctl enable --now attendance.service
 
-    # Confirm the process is listening before finishing user-data.
+    HEALTH_OK=0
     for i in $(seq 1 60); do
       if curl -fsS "http://127.0.0.1:${var.backend_port}/health" >/dev/null 2>&1; then
         echo "Attendance app is healthy on :${var.backend_port}"
-        exit 0
+        HEALTH_OK=1
+        break
       fi
       echo "Waiting for local /health ($i/60)"
       systemctl is-active --quiet attendance.service || systemctl restart attendance.service || true
       sleep 2
     done
 
-    echo "Bootstrap finished but /health not yet OK; dumping service logs"
     systemctl status attendance.service --no-pager || true
-    journalctl -u attendance.service -n 120 --no-pager || true
+    journalctl -u attendance.service -n 200 --no-pager > /var/log/attendance-service.log || true
+    ss -lntp | tee /var/log/attendance-listen.log || true
+    curl -v "http://127.0.0.1:${var.backend_port}/health" | tee /var/log/attendance-health.log || true
+
+    # Publish diagnostics to S3 for remote pull without SSH.
+    aws s3 cp /var/log/attendance-bootstrap.log "s3://${aws_s3_bucket.app.id}/logs/$${INSTANCE_ID}/bootstrap.log" || true
+    aws s3 cp /var/log/attendance-service.log "s3://${aws_s3_bucket.app.id}/logs/$${INSTANCE_ID}/service.log" || true
+    aws s3 cp /var/log/attendance-listen.log "s3://${aws_s3_bucket.app.id}/logs/$${INSTANCE_ID}/listen.log" || true
+    aws s3 cp /var/log/attendance-health.log "s3://${aws_s3_bucket.app.id}/logs/$${INSTANCE_ID}/health.log" || true
+
+    if [ "$${HEALTH_OK}" -eq 1 ]; then
+      exit 0
+    fi
+    echo "Bootstrap finished but /health not yet OK"
     exit 0
   EOF
 }
@@ -163,12 +180,13 @@ resource "aws_instance" "backend" {
 
   ami                         = local.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.private[count.index % length(aws_subnet.private)].id
+  subnet_id                   = local.backend_subnet_ids[count.index % length(local.backend_subnet_ids)]
   vpc_security_group_ids      = [aws_security_group.ec2.id]
   iam_instance_profile        = aws_iam_instance_profile.ec2.name
   key_name                    = var.key_name != "" ? var.key_name : null
   user_data                   = local.user_data
   user_data_replace_on_change = true
+  associate_public_ip_address = var.enable_public_app_access
 
   root_block_device {
     volume_type           = "gp3"
@@ -178,13 +196,13 @@ resource "aws_instance" "backend" {
   }
 
   metadata_options {
-    http_endpoint = "enabled"
-    http_tokens   = "required"
-    # Hop limit 2 helps awscli/SSM agent reliably use IMDSv2.
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
     http_put_response_hop_limit = 2
   }
 
   depends_on = [
+    aws_internet_gateway.main,
     aws_nat_gateway.main,
     aws_s3_object.attendance_app,
     aws_secretsmanager_secret_version.db,
@@ -196,6 +214,25 @@ resource "aws_instance" "backend" {
     Name = "ec2-${local.name_prefix}-backend-${count.index + 1}"
     Role = "attendance-backend"
   }
+}
+
+# Stable public Elastic IPs for each backend (when public access is enabled).
+resource "aws_eip" "backend" {
+  count  = var.enable_public_app_access ? var.instance_count : 0
+  domain = "vpc"
+
+  tags = {
+    Name = "eip-${local.name_prefix}-backend-${count.index + 1}"
+  }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
+resource "aws_eip_association" "backend" {
+  count = var.enable_public_app_access ? var.instance_count : 0
+
+  instance_id   = aws_instance.backend[count.index].id
+  allocation_id = aws_eip.backend[count.index].id
 }
 
 resource "aws_lb_target_group_attachment" "backend" {
