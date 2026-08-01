@@ -1,0 +1,33 @@
+# Copy to terraform.tfvars and customize as needed.
+aws_region       = "us-east-1"
+prefix           = "webapp"
+app_name         = "Daymark"
+instance_type    = "t3.micro"
+root_volume_size = 30
+instance_count   = 2
+backend_port      = 8080
+health_check_path = "/health"
+
+# Place EC2 in public subnets with Elastic IPs and open backend_port for direct access/debug.
+enable_public_app_access = true
+
+# RDS PostgreSQL (Free Tier friendly; Aurora VPC clusters are blocked on Free Plan)
+db_name               = "attendance"
+db_username           = "attendance_admin"
+db_instance_class     = "db.t4g.micro"
+db_allocated_storage  = 20
+# db_engine_version   = "16.6"
+
+# Optional: ACM certificate ARN enables HTTPS (443) and HTTP→HTTPS redirect.
+# certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Optional: existing key pair for SSH (also set enable_ssh = true).
+# key_name   = "my-keypair"
+# enable_ssh = true
+# ssh_cidr   = "203.0.113.10/32"
+
+tags = {
+  Project   = "daymark-attendance"
+  ManagedBy = "terraform"
+  Env       = "dev"
+}

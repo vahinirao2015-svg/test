@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} · Attendance desk{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="brand-mark">{{ app_name }}</p>
+  <h1>Mark the day. Keep the floor moving.</h1>
+  <p class="lede">Check people in and out against a shared PostgreSQL ledger behind your load balancer.</p>
+</section>
+
+<section class="actions" aria-label="Attendance actions">
+  <form class="action-form" method="post" action="{{ url_for('main.check_in') }}">
+    <h2>Check in</h2>
+    <label>
+      Employee code
+      <input name="employee_code" autocomplete="off" required placeholder="E-1042" />
+    </label>
+    <label>
+      Full name
+      <input name="full_name" autocomplete="name" required placeholder="Amina Cole" />
+    </label>
+    <label>
+      Note <span class="optional">(optional)</span>
+      <input name="note" placeholder="Opening shift" />
+    </label>
+    <button type="submit" class="btn btn-primary">Check in</button>
+  </form>
+
+  <form class="action-form" method="post" action="{{ url_for('main.check_out') }}">
+    <h2>Check out</h2>
+    <label>
+      Employee code
+      <input name="employee_code" autocomplete="off" required placeholder="E-1042" />
+    </label>
+    <p class="hint">Closes the open shift for that code.</p>
+    <button type="submit" class="btn btn-secondary">Check out</button>
+  </form>
+</section>
+
+<section class="board">
+  <div class="board-block">
+    <h2>On floor now</h2>
+    {% if open_records %}
+      <ul class="record-list">
+        {% for row in open_records %}
+          <li>
+            <strong>{{ row.employee.full_name }}</strong>
+            <span>{{ row.employee.code }}</span>
+            <time datetime="{{ row.check_in_at.isoformat() }}">in {{ row.check_in_at.strftime('%H:%M UTC') }}</time>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">Nobody checked in yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="board-block">
+    <h2>Recent activity</h2>
+    {% if recent %}
+      <ul class="record-list">
+        {% for row in recent %}
+          <li>
+            <strong>{{ row.employee.full_name }}</strong>
+            <span>{{ row.employee.code }}</span>
+            <time>
+              {{ row.check_in_at.strftime('%d %b %H:%M') }}
+              {% if row.check_out_at %}
+                → {{ row.check_out_at.strftime('%H:%M') }}
+              {% else %}
+                · open
+              {% endif %}
+            </time>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">No attendance rows yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

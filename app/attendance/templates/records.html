@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} · Records{% endblock %}
+{% block content %}
+<section class="page-intro">
+  <p class="brand-mark">{{ app_name }}</p>
+  <h1>Attendance records</h1>
+  <p class="lede">Latest 100 events stored in RDS PostgreSQL.</p>
+</section>
+
+<section class="table-wrap">
+  {% if records %}
+    <table>
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Code</th>
+          <th>Check in</th>
+          <th>Check out</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in records %}
+          <tr>
+            <td>{{ row.employee.full_name }}</td>
+            <td>{{ row.employee.code }}</td>
+            <td>{{ row.check_in_at.strftime('%Y-%m-%d %H:%M UTC') }}</td>
+            <td>
+              {% if row.check_out_at %}
+                {{ row.check_out_at.strftime('%Y-%m-%d %H:%M UTC') }}
+              {% else %}
+                <em>open</em>
+              {% endif %}
+            </td>
+            <td>{{ row.note or '—' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">No records yet. Check someone in from the desk.</p>
+  {% endif %}
+</section>
+{% endblock %}
